@@ -815,6 +815,8 @@ classdef RunExpt < handle
     end
 
     methods (Static)
+        [status, detail] = benchmarkStatus_(R, label)   % Status-bar text for a finished hw.benchmarkIO run
+
         function ME = timerErrorException_(evt)
             % ME = epsych.RunExpt.timerErrorException_(evt)
             % The exception a timer ErrorFcn event describes. The event's

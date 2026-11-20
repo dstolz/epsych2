@@ -1,6 +1,6 @@
 % smoke_test_hw_benchmark_io.m
-% Headless standing proof for hw.benchmarkIO and the two hw.Interface hooks
-% it relies on (parameterCapacity, isSimulated).
+% Headless standing proof for hw.benchmarkIO and the three hw.Interface hooks
+% it relies on (parameterCapacity, isSimulated, transferContext).
 %
 % Everything runs in memory: hw.Software, tmp/BenchLoopbackInterface (an
 % hw.Software that keeps what it is written), and -- for the offline hook
@@ -25,7 +25,20 @@
 %   13  Plot with figures invisible
 %   14  no backend class name in hw.benchmarkIO
 %   15  one Buf tag timed at several Sizes; capacity caps them; floor follows
-%   (progress logging is checked in group 3; the other groups run with it off)
+%   16  CancelFcn stops the run between calls
+%   17  TX / RX bit rate
+%   18  transferContext: base default, TDT_RPcox offline override, and
+%       results.Environment.Transfer (passed through; a throwing hook is
+%       survived); the TDT_RPcox trigger failure branches (source check)
+%   19  round-trip mismatch count and layout; failures surfaced as Problems,
+%       in the figure heading, and marked on a simulated interface
+%   20  whole-tag reads: later read sizes not timed, reads labelled by what
+%       moved, round trip still compares the length written
+%   21  extrapolation: factor in Fit, hollow pentagram with its label, dashed
+%       fit beyond the sizes timed, and the "does not bracket" note
+%   22  lookup cost: resolved, below resolution, and negative, in the
+%       Lookup table and on the plot
+%   (progress logging is checked in groups 3 and 20; the others run with it off)
 %
 % Run headless, from the repository root:
 %   matlab -batch "run('tmp/smoke_test_hw_benchmark_io.m')"
@@ -119,7 +132,7 @@ try
     results(end+1,:) = check('3  environment recorded', ...
         strcmp(R.Environment.BackendClass, 'BenchLoopbackInterface') && ...
         isfield(R.Environment, 'GLogVerbosity') && isfield(R.Environment, 'EPsychCommit') && ...
-        R.Environment.TicTocOverhead_s >= 0);
+        isfield(R.Environment, 'Transfer') && R.Environment.TicTocOverhead_s >= 0);
 
     lbT = BenchLoopbackInterface();
     lbT.add_parameter('!BenchTrig', 0, isTrigger=true);
@@ -556,6 +569,312 @@ try
     delete(lbK); delete(lbD);
 catch ME
     results(end+1,:) = check(sprintf('16 cancel threw: %s', ME.message), false);
+end
+
+%% 18. transferContext hook
+try
+    proto = hw.Interface.transferContextRecord();
+    fields = fieldnames(proto);
+    results(end+1,:) = check('18 transferContextRecord() is a 1x0 record with every field', ...
+        isstruct(proto) && isequal(size(proto), [1 0]) && ...
+        all(ismember({'Device', 'Link', 'CycleUsage', 'WriteCall', 'ReadCall', 'SampleFormat'}, fields)));
+    one = hw.Interface.transferContextRecord(Device='X');
+    results(end+1,:) = check('18 a record built with options keeps the same fields, unknowns NaN or empty', ...
+        isequal(fieldnames(one), fields) && strcmp(one.Device, 'X') && isnan(one.CycleUsage) && isempty(one.Link));
+
+    bp2 = BatchProbeInterface();
+    c0 = bp2.transferContext();
+    results(end+1,:) = check('18 base default transferContext is empty, same fields', ...
+        isempty(c0) && isequal(fieldnames(c0), fields));
+    delete(bp2)
+    sw3 = hw.Software();
+    results(end+1,:) = check('18 hw.Software does not override it', isempty(sw3.transferContext()));
+    delete(sw3)
+
+    rpc3 = hw.TDT_RPcox({}, {}, {}, Interface='GB', Connect=false);
+    M3 = hw.Module(rpc3, 'RZ6', 'IOBenchmark', uint8(1));
+    M3.Info.Number = 2;
+    M3.Info.ConnectionType = 'GB';
+    rpc3.setModules(M3);
+    c3 = rpc3.transferContext();
+    results(end+1,:) = check('18 TDT_RPcox offline: one record per module from its configuration, no COM', ...
+        numel(c3) == 1 && isequal(fieldnames(c3), fields) && strcmp(c3.Device, 'RZ6') && ...
+        strcmp(c3.Module, 'IOBenchmark') && strcmp(c3.Link, 'GB') && c3.DeviceNumber == 2);
+    results(end+1,:) = check('18 TDT_RPcox offline: calls and format stated, cycle usage NaN and says why', ...
+        contains(c3.WriteCall, 'WriteTagVEX') && contains(c3.WriteCall, 'F32') && ...
+        contains(c3.ReadCall, 'ReadTagVEX') && contains(c3.ReadCall, 'whole tag') && ...
+        strcmp(c3.SampleFormat, 'F32') && isnan(c3.CycleUsage) && ...
+        strcmp(c3.CycleUsageSource, 'not connected') && isnan(c3.SampleRate));
+    delete(rpc3)
+
+    lbT = makeLoopback();
+    lbT.Context = hw.Interface.transferContextRecord(Device='Loop', Link='memory', CycleUsage=42);
+    R = hw.benchmarkIO(lbT, quick{:}, VerifyRoundTrip=false);
+    results(end+1,:) = check('18 Environment.Transfer is what the interface reports', ...
+        isequal(R.Environment.Transfer, lbT.Context));
+    lbT.ThrowContext = true;
+    R = hw.benchmarkIO(lbT, quick{:}, VerifyRoundTrip=false);
+    results(end+1,:) = check('18 a transferContext that throws leaves an empty record, and the run goes on', ...
+        isempty(R.Environment.Transfer) && isequal(fieldnames(R.Environment.Transfer), fields) && ~isempty(R.Raw));
+    delete(lbT)
+
+    % G: the trigger's failure branches named an undefined variable. Without a
+    % device they cannot be reached, so this is a source check.
+    tsrc = fileread(which('hw.TDT_RPcox'));
+    tbody = extractBetween(tsrc, 'function t = trigger(obj,name)', 'function e = set_parameter');
+    results(end+1,:) = check('18 TDT_RPcox.trigger: no undefined module/throwerrormsg, a named error instead', ...
+        isscalar(tbody) && ~contains(tbody, 'throwerrormsg') && ...
+        isempty(regexp(tbody{1}, '[,(]\s*module\s*[,)]', 'once')) && ...
+        contains(tbody, 'hw:TDT_RPcox:TriggerFailed') && contains(tbody, 'P.Module.Label'));
+catch ME
+    results(end+1,:) = check(sprintf('18 transferContext threw: %s', ME.message), false);
+end
+
+%% 19. Round-trip failures: count, layout, surfaced
+try
+    lbR = makeLoopback(Simulated=false);
+    lbR.ClobberRun = [100 50];
+    R = hw.benchmarkIO(lbR, quick{:}, noScalars{:});
+    rt = R.RoundTrip;
+    results(end+1,:) = check('19 a clobbered run: every check fails with 50 mismatches in one run at 100-149', ...
+        height(rt) == 2 && ~any(rt.Pass) && all(rt.NMismatched == 50) && all(rt.MismatchRuns == 1) && ...
+        all(rt.FirstMismatch == 100) && all(rt.LastMismatch == 149) && all(rt.NCompared == rt.NWritten));
+    results(end+1,:) = check('19 the note says how many and that they are one contiguous run', ...
+        all(contains(rt.Note, "50 of")) && all(contains(rt.Note, "one contiguous run")));
+    pr = R.Problems(R.Problems.Role == "RoundTrip", :);
+    results(end+1,:) = check('19 each failed round trip is a Problems row naming the size', ...
+        height(pr) == 2 && all(contains(pr.Reason, "round trip failed at N=")) && ...
+        ~any(contains(pr.Reason, "simulated")));
+
+    lbR.ClobberRun = [1000 50];
+    R = hw.benchmarkIO(lbR, quick{:}, noScalars{:}, Buffers="Buf_1024");
+    results(end+1,:) = check('19 a run wrapping past the end is reported as touching both ends', ...
+        R.RoundTrip.NMismatched == 50 && R.RoundTrip.MismatchRuns == 2 && ...
+        contains(R.RoundTrip.Note, "both ends"));
+
+    lbR.ClobberRun = [0 0];
+    lbR.CorruptReads = true;
+    R = hw.benchmarkIO(lbR, quick{:}, noScalars{:});
+    results(end+1,:) = check('19 one corrupted sample: 1 mismatch, 1 run, at sample 1', ...
+        all(R.RoundTrip.NMismatched == 1) && all(R.RoundTrip.MismatchRuns == 1) && ...
+        all(R.RoundTrip.FirstMismatch == 1));
+    lbR.CorruptReads = false;
+
+    R = hw.benchmarkIO(lbR, quick{:}, noScalars{:});
+    results(end+1,:) = check('19 a clean round trip: no mismatches, no RoundTrip problem', ...
+        all(R.RoundTrip.Pass) && all(R.RoundTrip.NMismatched == 0) && ...
+        ~any(R.Problems.Role == "RoundTrip"));
+
+    sw2 = hw.Software();
+    sw2.add_parameter('Buf', 0, Type='Buffer', isArray=true);
+    R = hw.benchmarkIO(sw2, quick{:}, Sizes=[1024 4096]);
+    pr = R.Problems(R.Problems.Role == "RoundTrip", :);
+    results(end+1,:) = check('19 hw.Software fails by design, and the Problem says the interface is simulated', ...
+        height(R.RoundTrip) == 2 && ~any(R.RoundTrip.Pass) && all(R.RoundTrip.NRead == 1) && ...
+        height(pr) == 2 && all(contains(pr.Reason, "simulated")));
+    delete(sw2)
+
+    oldV = get(groot, 'DefaultFigureVisible');
+    set(groot, 'DefaultFigureVisible', 'off');
+    lbR.ClobberRun = [100 50];
+    R = hw.benchmarkIO(lbR, quick{:}, noScalars{:}, Plot=true);
+    tl = findobj(R.Figure, 'Type', 'tiledlayout');
+    head = strjoin(string(tl.Subtitle.String), " ");
+    results(end+1,:) = check('19 the figure heading says ROUND TRIP FAILED and names the buffer and size', ...
+        contains(head, "ROUND TRIP FAILED") && contains(head, "Buf_1024, N=1024") && ...
+        contains(head, "one contiguous run"));
+    delete(R.Figure)
+    lbR.ClobberRun = [0 0];
+    R = hw.benchmarkIO(lbR, quick{:}, noScalars{:}, Plot=true);
+    tl = findobj(R.Figure, 'Type', 'tiledlayout');
+    results(end+1,:) = check('19 a clean run has no failure heading', ...
+        ~contains(strjoin(string(tl.Subtitle.String), " "), "ROUND TRIP FAILED"));
+    delete(R.Figure)
+    set(groot, 'DefaultFigureVisible', oldV);
+    delete(lbR)
+catch ME
+    results(end+1,:) = check(sprintf('19 round-trip failures threw: %s', ME.message), false);
+end
+
+%% 20. Whole-tag reads
+try
+    lbW = BenchLoopbackInterface();
+    lbW.add_parameter('Buf', 0, Type='Buffer', isArray=true);
+    lbW.Capacities.Buf = 8192;
+    lbW.ReadWhole = 8192;
+    [said, R] = evalc('hw.benchmarkIO(lbW, quick{:}, noScalars{:}, Sizes=[1024 4096], Progress=true);');
+    rr = R.Raw(R.Raw.Role == "BufferRead", :);
+    results(end+1,:) = check('20 a whole-tag read is timed once per path, at the first size', ...
+        ~isempty(rr) && all(rr.NRequested == 1024) && all(rr.NTransferred == 8192) && ...
+        isequal(sort(unique(rr.Path)), ["name"; "param"]));
+    u = R.Unsupported(R.Unsupported.Role == "BufferRead", :);
+    results(end+1,:) = check('20 the later read sizes are listed as not timed, with why', ...
+        height(u) == 2 && all(contains(u.Reason, "not timed at N=4096")) && all(contains(u.Reason, "whole buffer")));
+    results(end+1,:) = check('20 writes are still timed at every size', ...
+        isequal(unique(R.Raw.NRequested(R.Raw.Role == "BufferWrite"))', [1024 4096]));
+    results(end+1,:) = check('20 progress says what the read moved, and why the next is skipped', ...
+        contains(said, "moved 8192 samples (the whole buffer, not the 1024 requested)") && ...
+        contains(said, "not timed at N=4096"));
+    results(end+1,:) = check('20 round trip compares the length written, at every size', ...
+        height(R.RoundTrip) == 2 && all(R.RoundTrip.Pass) && all(R.RoundTrip.NRead == 8192) && ...
+        isequal(R.RoundTrip.NCompared', [1024 4096]));
+    lr = R.Lookup(R.Lookup.Role == "BufferRead", :);
+    results(end+1,:) = check('20 the Lookup table carries what a read moved', ...
+        height(lr) == 1 && lr.NMoved == 8192);
+
+    oldV = get(groot, 'DefaultFigureVisible');
+    set(groot, 'DefaultFigureVisible', 'off');
+    R = hw.benchmarkIO(lbW, quick{:}, noScalars{:}, Sizes=[1024 4096], Plot=true);
+    axL = findobj(R.Figure, 'Type', 'axes');
+    axL = axL(arrayfun(@(a) strcmp(a.Title.String, 'Lookup cost'), axL));
+    cats = string(axL.XAxis.Categories);
+    results(end+1,:) = check('20 lookup panel labels a read by what moved, once, and not by N requested', ...
+        sum(startsWith(cats, "BufferRead")) == 1 && any(cats == "BufferRead, 8192 samples") && ...
+        ~any(contains(cats, "N=")));
+    delete(R.Figure)
+    set(groot, 'DefaultFigureVisible', oldV);
+
+    lbF2 = BenchLoopbackInterface(Simulated=false);
+    lbF2.add_parameter('Buf', 0, Type='Buffer', isArray=true);
+    lbF2.Capacities.Buf = 8192;
+    lbF2.ReadWhole = 8192;
+    R = hw.benchmarkIO(lbF2, Repeats=3, Warmup=0, Plot=false, Progress=false, CompareToSoftware=true, ...
+        ScalarWrite=[], ScalarRead=[], Trigger=[], Sizes=[1024 4096]);
+    results(end+1,:) = check('20 the floor still lines up row for row', ...
+        height(R.Floor) == height(R.Summary) && all(isfinite(R.Floor.Floor_s)));
+    delete(lbW); delete(lbF2);
+catch ME
+    results(end+1,:) = check(sprintf('20 whole-tag reads threw: %s', ME.message), false);
+end
+
+%% 21. Extrapolation
+try
+    f = hw.benchmarkIO("fit", [1024 16384], [1 2], TargetSamples=292969);
+    results(end+1,:) = check('21 fit: ExtrapolationFactor is TargetSamples over the largest size', ...
+        f.Extrapolated && abs(f.ExtrapolationFactor - 292969 / 16384) < 1e-12);
+    f = hw.benchmarkIO("fit", [1024 16384], [1 2], TargetSamples=4096);
+    results(end+1,:) = check('21 fit: 1 when TargetSamples is inside the sizes', ...
+        ~f.Extrapolated && f.ExtrapolationFactor == 1);
+    f = hw.benchmarkIO("fit", [1024 16384], [1 2], TargetSamples=256);
+    results(end+1,:) = check('21 fit: smallest size over TargetSamples when below them', ...
+        f.Extrapolated && f.ExtrapolationFactor == 4);
+
+    lbE = BenchLoopbackInterface();
+    lbE.add_parameter('Buf', 0, Type='Buffer', isArray=true);
+    lbE.Capacities.Buf = 400000;
+    lbE.DelayModel = [1e-4 1e-9];
+    [said, R] = evalc('hw.benchmarkIO(lbE, quick{:}, noScalars{:}, Sizes=[1024 4096]);');
+    fw = R.Fit(R.Fit.Role == "BufferWrite" & R.Fit.Path == "param", :);
+    results(end+1,:) = check('21 Fit flags it, with the factor and a note that the buffer could bracket it', ...
+        fw.Extrapolated && abs(fw.ExtrapolationFactor - 292969 / 4096) < 1e-9 && ...
+        contains(fw.Note, "do not bracket") && contains(fw.Note, "400000"));
+    results(end+1,:) = check('21 the note is logged', contains(said, "do not bracket"));
+    results(end+1,:) = check('21 the sizes requested are left alone (none added)', ...
+        isequal(unique(R.Raw.NRequested)', [1024 4096]));
+
+    oldV = get(groot, 'DefaultFigureVisible');
+    set(groot, 'DefaultFigureVisible', 'off');
+    R = hw.benchmarkIO(lbE, quick{:}, noScalars{:}, Sizes=[1024 4096], Plot=true, IncludeLookup=false);
+    pent = findobj(R.Figure, 'Tag', 'benchmarkIO:prediction');
+    lab = findobj(R.Figure, 'Tag', 'benchmarkIO:predictionLabel');
+    labTxt = strjoin(string(arrayfun(@(t) strjoin(string(t.String), " "), lab)), " ");
+    results(end+1,:) = check('21 the extrapolated pentagram is hollow and labelled EXTRAPOLATED with its factor', ...
+        ~isempty(pent) && all(arrayfun(@(h) isequal(h.MarkerFaceColor, [1 1 1]), pent)) && ...
+        contains(labTxt, "EXTRAPOLATED") && contains(labTxt, sprintf('%.1fx', 292969 / 4096)));
+    results(end+1,:) = check('21 the fit beyond the sizes timed is drawn dashed', ...
+        ~isempty(findobj(R.Figure, 'Tag', 'benchmarkIO:extrapolatedFit')));
+    note = findobj(R.Figure, 'Tag', 'benchmarkIO:targetNote');
+    results(end+1,:) = check('21 the buffer plot carries the "does not bracket" note', ...
+        isscalar(note) && contains(strjoin(string(note.String), " "), "do not bracket"));
+    delete(R.Figure)
+
+    R = hw.benchmarkIO(lbE, quick{:}, noScalars{:}, Sizes=[1024 4096], Plot=true, ...
+        IncludeLookup=false, TargetSamples=2000);
+    pent = findobj(R.Figure, 'Tag', 'benchmarkIO:prediction');
+    lab = findobj(R.Figure, 'Tag', 'benchmarkIO:predictionLabel');
+    labTxt = strjoin(string(arrayfun(@(t) strjoin(string(t.String), " "), lab)), " ");
+    results(end+1,:) = check('21 an interpolated prediction is filled, unflagged, with no note or dashed line', ...
+        ~isempty(pent) && ~any(arrayfun(@(h) isequal(h.MarkerFaceColor, [1 1 1]), pent)) && ...
+        ~contains(labTxt, "EXTRAPOLATED") && contains(labTxt, "predicted") && ...
+        isempty(findobj(R.Figure, 'Tag', 'benchmarkIO:targetNote')) && ...
+        isempty(findobj(R.Figure, 'Tag', 'benchmarkIO:extrapolatedFit')));
+    delete(R.Figure)
+
+    lbE.Capacities.Buf = 65536;
+    R = hw.benchmarkIO(lbE, quick{:}, noScalars{:}, Sizes=[1024 4096], Plot=true, IncludeLookup=false);
+    results(end+1,:) = check('21 a buffer too small for TargetSamples gets no "could bracket" note', ...
+        isempty(findobj(R.Figure, 'Tag', 'benchmarkIO:targetNote')) && ...
+        ~contains(R.Fit.Note(R.Fit.Role == "BufferWrite"), "do not bracket"));
+    delete(R.Figure)
+    set(groot, 'DefaultFigureVisible', oldV);
+    delete(lbE)
+catch ME
+    results(end+1,:) = check(sprintf('21 extrapolation threw: %s', ME.message), false);
+end
+
+%% 22. Lookup cost: resolved, below resolution, negative
+try
+    lk = {'Repeats', 6, 'Warmup', 0, 'Plot', false, 'CompareToSoftware', false, 'Progress', false, ...
+        'VerifyRoundTrip', false, 'ScalarRead', [], 'Trigger', [], 'Buffers', []};
+    lbL = BenchLoopbackInterface();
+    lbL.add_parameter('WScalar', 0);
+    status = @(R) R.Lookup.Status(R.Lookup.Role == "ScalarWrite");
+
+    lbL.NameDelay = 2e-3;
+    R = hw.benchmarkIO(lbL, lk{:});
+    results(end+1,:) = check('22 a name path 2 ms slower in every call is resolved, with its cost', ...
+        status(R) == "resolved" && R.Lookup.Cost_s > 1.5e-3 && R.Lookup.PValue < 0.05);
+
+    lbL.NameDelay = 0;
+    lbL.HandleDelay = 2e-3;
+    R = hw.benchmarkIO(lbL, lk{:});
+    results(end+1,:) = check('22 a name path FASTER in every call is "negative", not a cost', ...
+        status(R) == "negative" && R.Lookup.Cost_s < 0);
+
+    lbL.HandleDelay = 0;
+    lbL.AlternateDelay = 2e-3;
+    R = hw.benchmarkIO(lbL, lk{:});
+    results(end+1,:) = check('22 two paths drawn from one spread are below resolution', ...
+        status(R) == "below resolution" && R.Lookup.PValue >= 0.05);
+
+    oldV = get(groot, 'DefaultFigureVisible');
+    set(groot, 'DefaultFigureVisible', 'off');
+    lkPlot = lk;
+    lkPlot{find(strcmp(lk(1:2:end), 'Plot')) * 2} = true;
+    R = hw.benchmarkIO(lbL, lkPlot{:});
+    axL = findobj(R.Figure, 'Type', 'axes');
+    axL = axL(arrayfun(@(a) strcmp(a.Title.String, 'Lookup cost'), axL));
+    bars = findobj(axL, 'Type', 'bar');
+    labs = findobj(axL, 'Tag', 'benchmarkIO:lookupLabel');
+    labTxt = strjoin(string(arrayfun(@(t) strjoin(string(t.String), " "), labs)), " ");
+    results(end+1,:) = check('22 below resolution: no bar drawn, and the label says so', ...
+        all(isnan(bars.YData)) && contains(labTxt, "below resolution"));
+    delete(R.Figure)
+
+    lbL.AlternateDelay = 0;
+    lbL.HandleDelay = 2e-3;
+    R = hw.benchmarkIO(lbL, lkPlot{:});
+    axL = findobj(R.Figure, 'Type', 'axes');
+    axL = axL(arrayfun(@(a) strcmp(a.Title.String, 'Lookup cost'), axL));
+    bars = findobj(axL, 'Type', 'bar');
+    labs = findobj(axL, 'Tag', 'benchmarkIO:lookupLabel');
+    labTxt = strjoin(string(arrayfun(@(t) strjoin(string(t.String), " "), labs)), " ");
+    results(end+1,:) = check('22 negative: no bar drawn, and the label says it is not a cost', ...
+        all(isnan(bars.YData)) && contains(labTxt, "not a cost"));
+    delete(R.Figure)
+
+    lbL.HandleDelay = 0;
+    lbL.NameDelay = 2e-3;
+    R = hw.benchmarkIO(lbL, lkPlot{:});
+    axL = findobj(R.Figure, 'Type', 'axes');
+    axL = axL(arrayfun(@(a) strcmp(a.Title.String, 'Lookup cost'), axL));
+    bars = findobj(axL, 'Type', 'bar');
+    results(end+1,:) = check('22 resolved: the bar is drawn', all(isfinite(bars.YData)) && all(bars.YData > 0));
+    delete(R.Figure)
+    set(groot, 'DefaultFigureVisible', oldV);
+    delete(lbL)
+catch ME
+    results(end+1,:) = check(sprintf('22 lookup resolution threw: %s', ME.message), false);
 end
 
 %% Teardown

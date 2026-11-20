@@ -4,10 +4,13 @@ function outFile = create_hw_benchmark_protocol(outFile)
 % Utilities > Hardware > I/O Benchmark... has something to time with no
 % hardware attached: add a subject using the saved .eprot, then run the menu item.
 %
-% The Software backend keeps what it is written, so the scalar read-back and
-% buffer round trip work; timings are the in-memory floor, not a device's.
-% For a real rig, add the same parameter names to that interface instead
-% (an RPvds tag needs the ! prefix on the trigger).
+% hw.Software keeps nothing it is written: set_parameter returns at once and
+% get_parameter answers NaN (the values live in hw.Parameter). So the timings
+% are the in-memory call into a backend that writes and logs nothing -- not a
+% device's, and not all of EPsych's overhead -- the scalar read times a NaN,
+% and the buffer round trip FAILS BY DESIGN (reported as a simulated
+% interface's). For a real rig, add the same parameter names to that interface
+% instead (an RPvds tag needs the ! prefix on the trigger).
 %
 %   matlab -batch "run('examples/hw_benchmark/create_hw_benchmark_protocol.m')"
 arguments

@@ -13,8 +13,8 @@ function varargout = benchmarkIO(iface, varargin)
 % get_parameter and trigger on an hw.Interface. Nothing below that layer is
 % touched and nothing here depends on which backend it is, so the same call
 % times any hw.Interface; what a backend knows that this function would
-% otherwise have to ask about by class comes from two hw.Interface hooks,
-% parameterCapacity and isSimulated.
+% otherwise have to ask about by class comes from three hw.Interface hooks,
+% parameterCapacity, isSimulated and transferContext.
 %
 % Four ROLES are measured, each filled by one contract parameter (named
 % explicitly, or discovered by its default name -- see "contract"):
@@ -50,9 +50,12 @@ function varargout = benchmarkIO(iface, varargin)
 %       A size above what the backend, BufferSizes or a Buf_<N> name says the
 %       buffer holds is reported in results.Unsupported and skipped; where
 %       none of those is known (hw.Software) the sizes are trusted. Default
-%       [] (each buffer once, at its own size). Note a backend that reads a
-%       whole tag back returns its full size whatever was written, so the
-%       read fit then has one distinct length and reports no slope.
+%       [] (each buffer once, at its own size). A backend that reads a
+%       whole tag back returns its full size whatever was written: once a
+%       read has returned more than its block asked for, the later read
+%       blocks of that buffer and path are not timed (they would repeat the
+%       same transfer) and are listed in results.Unsupported. The read fit
+%       then has one distinct length and reports no slope.
 %   Repeats         - timed calls per measurement. Default 50.
 %   Warmup          - calls discarded before them. Default 5.
 %   VerifyRoundTrip - write a fresh vector to each readable buffer, read it
@@ -87,18 +90,27 @@ function varargout = benchmarkIO(iface, varargin)
 %   results - struct with fields
 %     Raw          long table: Role, Parameter, Backend, Path, NRequested,
 %                  NTransferred, Iteration, Seconds, Accepted
-%     Summary      per Role/Parameter/Path: min, 5th percentile, median, mean,
-%                  95th percentile, max,
-%                  and for buffers MSamples/s and MB/s at 4 bytes per sample
-%     Fit          per buffer role and path: t = Overhead + PerSample*N, and
-%                  the predicted time for TargetSamples and for two buffers
-%     RoundTrip    per buffer: samples written/read, max error, pass
+%     Summary      per Role/Parameter/Path/NRequested: min, 5th percentile,
+%                  median, mean, 95th percentile, max, and for buffers
+%                  MSamples/s and MB/s at 4 bytes per sample. NTransferred is
+%                  what moved; on a read it can exceed NRequested
+%     Fit          per buffer role and path: t = Overhead + PerSample*N, the
+%                  predicted time for TargetSamples and for two buffers,
+%                  Extrapolated and ExtrapolationFactor
+%     Lookup       per measurement timed both ways: by-handle and by-name
+%                  medians, their difference, a rank-sum p-value and a Status
+%                  ("resolved", "below resolution" or "negative")
+%     RoundTrip    per buffer and size: samples written, read and compared,
+%                  how many differ, in how many contiguous runs, where, the
+%                  max error, pass
 %     Floor        per Summary row: backend median, twin median, difference
 %     Software     the twin's own results (empty when not run)
-%     Contract     what filled each role, from where, at what size
+%     Contract     what filled each role, from where, what it holds, at what size
 %     Unsupported  Role, Parameter, Path, Reason
-%     Problems     measurement blocks that threw or had writes rejected
-%     Environment  MATLAB, backend, modules, EPsych commit, verbosity levels
+%     Problems     blocks that threw, had writes rejected or returned varying
+%                  lengths, and every failed round trip (Role "RoundTrip")
+%     Environment  MATLAB, backend, modules, transfer context (device, link,
+%                  calls, cycle usage), EPsych commit, verbosity levels
 %     Options, Figure, Files
 %
 % Subcommands:
@@ -113,7 +125,7 @@ function varargout = benchmarkIO(iface, varargin)
 %   R.Fit(R.Fit.Path == "param", :)
 %
 % See also: documentation/hw/hw_benchmarkIO.md, hw.Interface.parameterCapacity,
-%   hw.Interface.isSimulated
+%   hw.Interface.isSimulated, hw.Interface.transferContext
 
 % The entry point dispatches on its first argument, because a package
 % function cannot carry the static helpers a class would; each branch is a
@@ -176,7 +188,7 @@ C = defaults_();
 env = environment_(iface);
 if env.IsSimulated
     vprintf(2, ['hw.benchmarkIO: %s has no device behind it; these timings ' ...
-        'describe EPsych''s own overhead only'], env.DisplayLabel)
+        'describe its in-memory call path only'], env.DisplayLabel)
 end
 
 contract = resolveContract_(iface, options);
@@ -196,14 +208,37 @@ blocks = contract.Blocks;
 nBlocks = numel(blocks);
 rawTables = cell(nBlocks, 1);
 problems = emptyIssues_();
+unsupported = contract.Unsupported;
 backend = string(class(iface));
 runTimer = tic;
+
+% A backend that reads a buffer's whole storage back moves the same samples
+% whatever length was written before, so the second and later reads of that
+% buffer on that path would time one transfer again under a different size.
+% Keyed by Parameter|Path, recorded once a read returns MORE than its block
+% asked for. A read returning fewer (a simulated backend's NaN) says nothing
+% about the storage and does not count.
+wholeReadKey = strings(0, 1);
+wholeReadAsked = zeros(0, 1);
+wholeReadMoved = zeros(0, 1);
 
 progress_(options.Progress, 'hw.benchmarkIO: timing %s -- %d measurements of %d calls each (%d warm-up)', ...
     env.DisplayLabel, nBlocks, options.Repeats, options.Warmup)
 
 for b = 1:nBlocks
     B = blocks(b);
+    readKey = B.Parameter + "|" + B.Path;
+    if B.Role == "BufferRead" && any(wholeReadKey == readKey)
+        j = find(wholeReadKey == readKey, 1);
+        reason = sprintf(['not timed at N=%d: the read at N=%d returned %d samples, the ' ...
+            'whole buffer, so this read would repeat that same transfer'], ...
+            B.NRequested, wholeReadAsked(j), wholeReadMoved(j));
+        unsupported = appendRow_(unsupported, issueRow_(B, reason));
+        progress_(options.Progress, 'hw.benchmarkIO: [%d/%d] %s, %s: %s', b, nBlocks, ...
+            B.Role, char(pathWords_(B.Path)), reason)
+        continue
+    end
+
     % Said before the block runs, since one large buffer write can take long
     % enough that the operator needs to know it has not hung.
     progress_(options.Progress, 'hw.benchmarkIO: [%d/%d] %s, %s%s ...', b, nBlocks, ...
@@ -241,15 +276,24 @@ for b = 1:nBlocks
             min(nOut(keep)), max(nOut(keep)))));
     end
 
-    % A buffer block also says what its median came to as a line speed.
+    % A buffer block also says what its median came to as a line speed, and
+    % a read says how many samples it actually moved.
     rateNote = '';
     if ismember(B.Role, ["BufferWrite", "BufferRead"])
         direction = "TX";
         if B.Role == "BufferRead"
             direction = "RX";
+            moved = nOut(keep);
+            rateNote = sprintf(', moved %d samples', round(median(moved)));
+            if ~isempty(moved) && all(moved == moved(1)) && moved(1) > B.NRequested
+                rateNote = [rateNote sprintf(' (the whole buffer, not the %d requested)', B.NRequested)];
+                wholeReadKey = appendRow_(wholeReadKey, readKey);
+                wholeReadAsked = appendRow_(wholeReadAsked, B.NRequested);
+                wholeReadMoved = appendRow_(wholeReadMoved, moved(1));
+            end
         end
         mbit = 8 * C.BYTES_PER_SAMPLE * median(nOut(keep)) / median(t(keep)) / 1e6;
-        rateNote = sprintf(', %s %s', direction, formatRate_(mbit));
+        rateNote = sprintf('%s, %s %s', rateNote, direction, formatRate_(mbit));
     end
     % The spread beside the median, since a backend's occasional slow call
     % (scheduler, USB polling) is what a trial boundary actually waits on.
@@ -275,6 +319,16 @@ results = struct();
 results.Raw = raw;
 results.Summary = summarize_(raw);
 results.Fit = fitTable_(results.Summary, options.TargetSamples);
+results.Lookup = lookupTable_(raw, results.Summary);
+
+% A buffer that could hold TargetSamples but was not timed on both sides of
+% it gets an extrapolated prediction it did not need to. Said, never fixed:
+% adding sizes is the caller's decision, since each costs device time.
+targetNotes = targetNotes_(contract.Table, options.TargetSamples);
+for k = 1:numel(targetNotes)
+    vprintf(1, 'hw.benchmarkIO: %s', targetNotes(k))
+end
+results.Fit = annotateFit_(results.Fit, targetNotes);
 
 if options.VerifyRoundTrip
     progress_(options.Progress, 'hw.benchmarkIO: verifying the transfer (%d write-and-read-back checks) ...', ...
@@ -287,6 +341,9 @@ if options.VerifyRoundTrip
 else
     results.RoundTrip = emptyRoundTrip_();
 end
+% A failed round trip means the buffer times may not describe a clean
+% transfer, so it is a Problem, not only a row in RoundTrip.
+problems = appendRow_(problems, roundTripProblems_(results.RoundTrip, env.IsSimulated));
 
 results.Floor = emptyFloor_();
 results.Software = [];
@@ -300,7 +357,7 @@ end
 % The handles stay internal: a saved hw.Parameter drags its whole
 % interface, device handle included, into the MAT file.
 results.Contract = removevars(contract.Table, 'Param');
-results.Unsupported = contract.Unsupported;
+results.Unsupported = unsupported;
 results.Problems = problems;
 results.Environment = env;
 results.Options = rmfield(options, intersect(fieldnames(options), ...
@@ -337,10 +394,14 @@ end
 
 
 function s = sizeSuffix_(B)
-% ", N=4096" for a buffer block; nothing for a scalar.
+% ", N=4096" for a buffer write; ", N=4096 requested" for a read, whose
+% backend may return more (the line after it says what moved); nothing for
+% a scalar.
 s = '';
-if ismember(B.Role, ["BufferWrite", "BufferRead"])
+if B.Role == "BufferWrite"
     s = sprintf(', N=%d', B.NRequested);
+elseif B.Role == "BufferRead"
+    s = sprintf(', N=%d requested', B.NRequested);
 end
 end
 
@@ -363,6 +424,9 @@ C.SEED = 20261120;
 % Bytes per sample for MB/s. RPvds buffers are float32 on the wire; a
 % backend that sends text or another width moves a different byte count.
 C.BYTES_PER_SAMPLE = 4;
+% Two-sided rank-sum level at which a by-name/by-handle difference counts as
+% resolved. Below it the difference is inside the spread of the calls.
+C.LOOKUP_ALPHA = 0.05;
 end
 
 
@@ -430,7 +494,7 @@ for r = 1:numel(C.ROLES)
     end
 
     [nm, nameReason] = namePath_(iface, P);
-    rows = appendRow_(rows, contractRow_(role, P, source, NaN, NaN, 1, "scalar", nm, ""));
+    rows = appendRow_(rows, contractRow_(role, P, source, NaN, NaN, NaN, 1, "scalar", nm, ""));
     [blocks, unsupported] = addBlocks_(blocks, unsupported, role, kind, P, nm, nameReason, ...
         payload, 1, options.IncludeLookup);
 end
@@ -472,6 +536,12 @@ for k = 1:numel(P)
         d = declared(k);
     end
     [N, sizeSource, capacity, note] = bufferSize_(iface, p, d);
+    % What the buffer is known to hold, where something other than a read
+    % said so; kept for the TargetSamples note, since N is reused below.
+    holds = NaN;
+    if ismember(sizeSource, ["parameterCapacity", "BufferSizes", "name"])
+        holds = N;
+    end
 
     % Sizes asks for several lengths on this one tag. A length is held to
     % what the backend or the caller said the tag holds; where the size came
@@ -512,7 +582,7 @@ for k = 1:numel(P)
     readable = ~strcmp(p.Access, 'Write');
     for N = sizes
         data = randomPayload_(rs, N);
-        rows = appendRow_(rows, contractRow_("Buffers", p, source, capacity, d, N, sizeSource, nm, note));
+        rows = appendRow_(rows, contractRow_("Buffers", p, source, capacity, d, holds, N, sizeSource, nm, note));
 
         [blocks, unsupported] = addBlocks_(blocks, unsupported, "BufferWrite", "bufferwrite", p, nm, ...
             nameReason, {data}, N, options.IncludeLookup);
@@ -762,7 +832,7 @@ for role = ["BufferWrite", "BufferRead"]
         f = fitLinear_(x, y, TargetSamples = target);
         F = appendRow_(F, table(role, path, f.NumSizes, f.NMin, f.NMax, ...
             f.Overhead_s, f.PerSample_s, f.RSquared, target, f.Predicted_s, ...
-            f.PredictedTwoBuffers_s, f.Extrapolated, f.Note, ...
+            f.PredictedTwoBuffers_s, f.Extrapolated, f.ExtrapolationFactor, f.Note, ...
             'VariableNames', F.Properties.VariableNames));
     end
 end
@@ -788,7 +858,7 @@ t = t(ok);
 f = struct('NumSizes', numel(unique(N)), 'NMin', NaN, 'NMax', NaN, ...
     'Overhead_s', NaN, 'PerSample_s', NaN, 'RSquared', NaN, ...
     'Predicted_s', NaN, 'PredictedTwoBuffers_s', NaN, 'Extrapolated', false, ...
-    'Note', "");
+    'ExtrapolationFactor', NaN, 'Note', "");
 if ~isempty(N)
     f.NMin = min(N);
     f.NMax = max(N);
@@ -814,6 +884,9 @@ if isfinite(T)
     f.Predicted_s = f.Overhead_s + f.PerSample_s * T;
     f.PredictedTwoBuffers_s = 2 * f.Predicted_s;
     f.Extrapolated = T < f.NMin || T > f.NMax;
+    % How far outside the sizes timed: TargetSamples over the largest, or
+    % the smallest over TargetSamples; 1 inside the range.
+    f.ExtrapolationFactor = max([1, T / f.NMax, f.NMin / T]);
 end
 if f.Overhead_s < 0
     f.Note = "negative overhead: the fixed cost is below what these sizes resolve";
@@ -821,10 +894,60 @@ end
 end
 
 
+function notes = targetNotes_(contractTable, target)
+% One sentence per buffer timed at two or more sizes that holds at least
+% TargetSamples but whose timed sizes do not bracket it, so its prediction
+% is extrapolated needlessly.
+% Read from the contract (Role, Parameter, Holds, N), so run_ and plot_ say
+% the same thing.
+arguments
+    contractTable table
+    target (1,1) double
+end
+notes = strings(0, 1);
+rows = contractTable(contractTable.Role == "Buffers", :);
+for name = unique(rows.Parameter, 'stable')'
+    r = rows(rows.Parameter == name, :);
+    holds = r.Holds(1);
+    sizes = reshape(r.N, 1, []);
+    % One size gives no fit and so no prediction to call extrapolated.
+    if numel(unique(sizes)) < 2 || ~(isfinite(holds) && holds >= target) || ...
+            (min(sizes) <= target && target <= max(sizes))
+        continue
+    end
+    if max(sizes) < target
+        fix = sprintf('time a size from %d up to the %d it holds', ceil(target), holds);
+    else
+        fix = sprintf('time a size of %d or less', floor(target));
+    end
+    notes = appendRow_(notes, string(sprintf(['%s holds %d samples, enough for ' ...
+        'TargetSamples (%d), but the sizes timed (%s) do not bracket it, so the ' ...
+        'prediction is extrapolated; to interpolate, %s'], ...
+        name, holds, round(target), strjoin(string(sizes), ', '), fix)));
+end
+end
+
+
+function F = annotateFit_(F, notes)
+% Append the TargetSamples notes to every extrapolated Fit row's Note.
+if isempty(notes) || isempty(F)
+    return
+end
+txt = strjoin(notes, " ");
+for k = find(F.Extrapolated)'
+    F.Note(k) = strtrim(strjoin([F.Note(k), txt], " "));
+end
+end
+
+
 % =====================================================================
 function RT = verifyRoundTrip_(iface, buffers, cancelFcn)
 % Untimed: write a vector the timed blocks never wrote, read it back through
-% the pre-resolved parameter, compare at float32 precision.
+% the pre-resolved parameter, compare at float32 precision. Where samples
+% differ, say how many and how they are laid out: one contiguous run is
+% what a buffer the device itself is writing into (a running write index)
+% would leave; scattered samples point elsewhere. Only the length written
+% is compared -- a whole-tag read returns more, whose contents are unknown.
 C = defaults_();
 RT = emptyRoundTrip_();
 rs = RandStream('mt19937ar', 'Seed', C.SEED + 1);
@@ -837,9 +960,11 @@ for k = 1:numel(buffers)
     N = buffers(k).N;
     data = randomPayload_(rs, N);
     nRead = NaN;
+    n = 0;
     maxErr = NaN;
     tol = double(max(eps(abs(data))));
     pass = false;
+    M = mismatchRuns_(false(1, 0));
     try
         accepted = writeAccepted_(iface.set_parameter(P, {data}));
         v = iface.get_parameter(P);
@@ -854,34 +979,102 @@ for k = 1:numel(buffers)
             % One float32 ulp per element: a float32 path returns exactly
             % what it was given, so anything above that is a corruption.
             err = abs(double(single(reshape(v(1:n), 1, []))) - double(data(1:n)));
+            % ~(<=) rather than >, so a NaN read back counts as a mismatch.
+            bad = ~(err <= double(eps(abs(data(1:n)))));
             if n > 0
                 maxErr = max(err);
             end
-            pass = nRead >= N && all(err <= double(eps(abs(data(1:n)))));
-            note = "";
+            M = mismatchRuns_(bad);
+            pass = nRead >= N && ~any(bad);
+
+            parts = strings(0, 1);
             if nRead < N
-                note = sprintf('read returned %d of %d samples', nRead, N);
+                parts = appendRow_(parts, string(sprintf('read returned %d of %d samples', nRead, N)));
             elseif nRead > N
-                note = sprintf('read returned %d samples; the first %d compared', nRead, N);
+                parts = appendRow_(parts, string(sprintf('read returned %d samples; the first %d compared', nRead, N)));
+            end
+            if M.Count > 0
+                parts = appendRow_(parts, string(sprintf('%d of %d samples differ (largest error %.3g), %s', ...
+                    M.Count, n, maxErr, M.Text)));
             end
             if ~accepted
-                note = strtrim(note + " write reported failed");
+                parts = appendRow_(parts, "write reported failed");
+            end
+            note = "";
+            if ~isempty(parts)
+                note = strjoin(parts, "; ");
             end
         end
     catch ME
         vprintf(0, 1, ME)
         note = string(ME.message);
     end
-    RT = appendRow_(RT, table(string(P.Name), N, nRead, maxErr, tol, pass, string(note), ...
-        'VariableNames', RT.Properties.VariableNames));
+    RT = appendRow_(RT, table(string(P.Name), N, nRead, n, M.Count, M.Runs, M.First, M.Last, ...
+        maxErr, tol, pass, string(note), 'VariableNames', RT.Properties.VariableNames));
+end
+end
+
+
+function M = mismatchRuns_(bad)
+% Count and lay out the mismatched samples: how many, in how many contiguous
+% runs, first and last index, and a phrase saying so. A run that reaches
+% both ends of what was compared is reported as one that may wrap, since a
+% circular write index passing the end of the buffer leaves exactly that.
+arguments
+    bad (1,:) logical
+end
+idx = find(bad);
+M = struct('Count', numel(idx), 'Runs', 0, 'First', NaN, 'Last', NaN, 'Text', "");
+if isempty(idx)
+    return
+end
+breaks = find(diff(idx) > 1);
+M.Runs = numel(breaks) + 1;
+M.First = idx(1);
+M.Last = idx(end);
+if M.Count == 1
+    M.Text = sprintf('at sample %d', M.First);
+elseif M.Runs == 1
+    M.Text = sprintf(['in one contiguous run (samples %d-%d), consistent with the ' ...
+        'device writing into the buffer while the host does'], M.First, M.Last);
+elseif M.Runs == 2 && M.First == 1 && M.Last == numel(bad)
+    M.Text = sprintf(['in two runs touching both ends (samples 1-%d and %d-%d), ' ...
+        'consistent with a write index wrapping round the buffer'], ...
+        idx(breaks(1)), idx(breaks(1) + 1), M.Last);
+else
+    M.Text = sprintf('in %d separate runs, from sample %d to %d', M.Runs, M.First, M.Last);
+end
+M.Text = string(M.Text);
+end
+
+
+function T = roundTripProblems_(RT, isSimulated)
+% One Problems row per failed round trip, logged as it is made. On a
+% simulated interface the failure may be by design -- a backend that keeps
+% nothing it is written cannot pass -- so it is said and logged at level 1.
+T = emptyIssues_();
+fails = RT(~RT.Pass, :);
+for k = 1:height(fails)
+    reason = "round trip failed at N=" + fails.NWritten(k) + ": " + fails.Note(k);
+    if isSimulated
+        reason = reason + " (the interface is simulated; one that does not keep " + ...
+            "what it is written cannot pass this check)";
+        vprintf(1, 'hw.benchmarkIO: "%s" %s', fails.Parameter(k), reason)
+    else
+        vprintf(0, 1, 'hw.benchmarkIO: "%s" %s', fails.Parameter(k), reason)
+    end
+    T = appendRow_(T, issueTableRow_("RoundTrip", fails.Parameter(k), "param", reason));
 end
 end
 
 
 % =====================================================================
 function [Floor, twinResults] = softwareFloor_(contract, S, options)
-% The same contract, the same sizes, on an in-memory twin: what EPsych's own
-% call path costs with no transport under it.
+% The same contract, the same sizes, on an in-memory twin: the call into a
+% backend's set_parameter/get_parameter/trigger with no transport under it.
+% It is not all of what a real backend adds besides the transport: the twin
+% logs nothing per write, makes no connection probe, and answers reads
+% without resolving a name (see documentation/hw/hw_benchmarkIO.md).
 arguments
     contract (1,1) struct
     S table
@@ -1262,6 +1455,19 @@ if ~isempty(iface.Module)
         'Index', double(q.Index), 'Fs', q.Fs, 'Info', q.Info), iface.Module);
 end
 
+% What the backend says the timings depend on (device model, link, the
+% calls a buffer goes through, cycle usage), from the transferContext hook
+% so nothing here has to know which backend this is. Read before any timing.
+env.Transfer = hw.Interface.transferContextRecord();
+try
+    tc = iface.transferContext();
+    if isstruct(tc)
+        env.Transfer = tc;
+    end
+catch ME
+    vprintf(2, 'hw.benchmarkIO: transfer context not available: %s', ME.message)
+end
+
 env.EPsychCommit = '';
 try
     E = EPsychInfo;
@@ -1329,11 +1535,7 @@ for role = ["BufferWrite", "BufferRead"]
 
         f = F(F.Role == role & F.Path == path, :);
         if ~isempty(f) && isfinite(f.PerSample_s(1))
-            xx = logspace(log10(max(1, min(x))), log10(max([x; f.TargetSamples(1)])), 64);
-            plot(ax, xx, 1e3 * (f.Overhead_s(1) + f.PerSample_s(1) * xx), '-', ...
-                'Color', c, 'HandleVisibility', 'off');
-            plot(ax, f.TargetSamples(1), 1e3 * f.Predicted_s(1), 'p', 'MarkerSize', 12, ...
-                'Color', c, 'MarkerFaceColor', c, 'HandleVisibility', 'off');
+            plotPrediction_(ax, x, f(1, :), c);
         end
     end
 end
@@ -1341,8 +1543,8 @@ set(ax, 'XScale', 'log')
 xlabel(ax, 'Samples per call')
 ylabel(ax, 'Time per call (ms)')
 title(ax, 'Buffers')
-subtitle(ax, {'Dots: median; bars: 5th-95th percentile; line: linear fit;', ...
-    'pentagram: predicted at TargetSamples.'})
+subtitle(ax, {'Dots: median; bars: 5th-95th percentile; line: linear fit (dashed outside the sizes timed);', ...
+    'pentagram: predicted at TargetSamples (hollow: extrapolated).'})
 if ci > 0
     xline(ax, results.Options.TargetSamples, ':', 'TargetSamples', 'HandleVisibility', 'off');
     lgd = legend(ax);
@@ -1361,6 +1563,27 @@ if ~isempty(skipped)
         'Units', 'normalized', 'HorizontalAlignment', 'right', 'VerticalAlignment', 'bottom', ...
         'FontSize', 9, 'Interpreter', 'none', 'BackgroundColor', 'w', ...
         'EdgeColor', [0.85 0.33 0.1], 'Margin', 4);
+end
+
+% A buffer that could hold TargetSamples but was not timed either side of it.
+notes = targetNotes_(results.Contract, results.Options.TargetSamples);
+if ~isempty(notes)
+    text(ax, 0.98, 0.97, cellstr(notes), 'Units', 'normalized', ...
+        'HorizontalAlignment', 'right', 'VerticalAlignment', 'top', ...
+        'FontSize', 8, 'Interpreter', 'none', 'BackgroundColor', 'w', ...
+        'EdgeColor', [0.85 0.33 0.1], 'Margin', 4, 'Tag', 'benchmarkIO:targetNote');
+end
+
+% A failed round trip heads the whole figure: every buffer time on it may
+% describe something other than a clean transfer.
+failed = results.RoundTrip(~results.RoundTrip.Pass, :);
+if ~isempty(failed)
+    msg = ["ROUND TRIP FAILED -- the buffer times may not describe a clean transfer:"; ...
+        failed.Parameter + ", N=" + failed.NWritten + ": " + failed.Note];
+    st = subtitle(tl, cellstr(msg));
+    st.Color = [0.75 0 0];
+    st.FontWeight = 'bold';
+    st.Interpreter = 'none';
 end
 
 % ---- bit rate: what the buffer times above come to as a line speed
@@ -1418,7 +1641,50 @@ subtitle(ax, {'Box: quartiles; dots: every timed call; label: median.', ...
     'By handle: the call is given the hw.Parameter. By name: it is given the name.'})
 
 % ---- what looking a parameter up by name adds
-plotLookup_(nexttile(tl, 4), S);
+plotLookup_(nexttile(tl, 4), results.Lookup);
+end
+
+
+function plotPrediction_(ax, x, f, c)
+% The fit line and the TargetSamples prediction for one series. The line is
+% solid over the sizes timed and dashed beyond them; the pentagram is hollow
+% and its label says by how much when the prediction is extrapolated.
+a = max(1, min(x));
+b = max(x);
+T = f.TargetSamples;
+fitMs = @(xx) 1e3 * (f.Overhead_s + f.PerSample_s * xx);
+xs = logspace(log10(a), log10(b), 64);
+plot(ax, xs, fitMs(xs), '-', 'Color', c, 'HandleVisibility', 'off');
+if T > b
+    xs = logspace(log10(b), log10(T), 32);
+elseif T < a
+    xs = logspace(log10(T), log10(a), 32);
+else
+    xs = [];
+end
+if ~isempty(xs)
+    plot(ax, xs, fitMs(xs), '--', 'Color', c, 'HandleVisibility', 'off', ...
+        'Tag', 'benchmarkIO:extrapolatedFit');
+end
+
+if f.Extrapolated
+    face = 'w';
+    where = "beyond the largest size timed";
+    if T < f.NMin
+        where = "below the smallest size timed";
+    end
+    label = sprintf('%s, EXTRAPOLATED %.1fx %s', formatTime_(f.Predicted_s), ...
+        f.ExtrapolationFactor, where);
+else
+    face = c;
+    label = sprintf('%s predicted', formatTime_(f.Predicted_s));
+end
+plot(ax, T, 1e3 * f.Predicted_s, 'p', 'MarkerSize', 12, 'Color', c, ...
+    'MarkerFaceColor', face, 'LineWidth', 1.25, 'HandleVisibility', 'off', ...
+    'Tag', 'benchmarkIO:prediction');
+text(ax, T, 1e3 * f.Predicted_s, {'', label}, 'HorizontalAlignment', 'right', ...
+    'VerticalAlignment', 'top', 'FontSize', 8, 'Color', c, 'Interpreter', 'none', ...
+    'Clipping', 'off', 'Tag', 'benchmarkIO:predictionLabel');
 end
 
 
@@ -1536,62 +1802,116 @@ end
 end
 
 
-function plotLookup_(ax, S)
-% By-name median minus by-handle median, per measurement. Both calls move the
-% same data, so the difference is the lookup.
-[lab, cost] = lookupCost_(S);
-if isempty(cost)
+function plotLookup_(ax, L)
+% By-name median minus by-handle median, per measurement, from the Lookup
+% table. Only a resolved difference is drawn as a bar: one inside the spread
+% of the calls, or a negative one (drift between the two measurements, since
+% a lookup cannot make a call faster), is written at zero instead, with why.
+if isempty(L)
     axis(ax, 'off')
     text(ax, 0.5, 0.5, {'Lookup cost not measured.', 'Run with IncludeLookup=true.'}, ...
         'Units', 'normalized', 'HorizontalAlignment', 'center')
     return
 end
 
-[scale, unit] = timeUnit_(max(abs(cost)));
+resolved = L.Status == "resolved";
+lab = lookupLabels_(L);
+cost = L.Cost_s;
+shown = cost;
+shown(~resolved) = NaN;
+ref = max(abs(cost(resolved)));
+if isempty(ref) || ~isfinite(ref) || ref == 0
+    ref = max(abs(cost));
+end
+[scale, unit] = timeUnit_(ref);
 x = categorical(cellstr(lab), cellstr(lab), cellstr(lab), 'Ordinal', true);
-bar(ax, x, scale * cost, 0.6, 'FaceColor', [0.85 0.33 0.1])
+bar(ax, x, scale * shown, 0.6, 'FaceColor', [0.85 0.33 0.1])
 hold(ax, 'on')
 set(ax, 'TickLabelInterpreter', 'none')
 ylabel(ax, sprintf('Added by name lookup (%s)', unit))
 for k = 1:numel(cost)
-    va = 'bottom';
-    if cost(k) < 0
-        va = 'top';
+    if resolved(k)
+        txt = formatTime_(cost(k));
+        y = scale * cost(k);
+        clr = [0 0 0];
+    elseif L.Status(k) == "below resolution"
+        txt = {'below resolution', sprintf('(%s, p = %.2g)', formatTime_(cost(k)), L.PValue(k))};
+        y = 0;
+        clr = [0.4 0.4 0.4];
+    else
+        txt = {sprintf('by name %s faster:', formatTime_(-cost(k))), 'not a cost'};
+        y = 0;
+        clr = [0.4 0.4 0.4];
     end
-    text(ax, k, scale * cost(k), formatTime_(cost(k)), 'HorizontalAlignment', 'center', ...
-        'VerticalAlignment', va, 'FontSize', 9, 'Interpreter', 'none', 'Clipping', 'off');
+    text(ax, k, y, txt, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', ...
+        'FontSize', 9, 'Interpreter', 'none', 'Clipping', 'off', 'Color', clr, ...
+        'Tag', 'benchmarkIO:lookupLabel');
 end
 yl = ylim(ax);
-ylim(ax, [min(yl(1), 0) - 0.08 * diff(yl), yl(2) + 0.12 * diff(yl)])
+ylim(ax, [min(yl(1), 0) - 0.08 * diff(yl), yl(2) + 0.25 * diff(yl)])
 grid(ax, 'on')
 title(ax, 'Lookup cost')
+C = defaults_();
 subtitle(ax, {'By-name median minus by-handle median: what find_parameter adds per call.', ...
-    'A session dispatches handles, so it does not pay this.'})
+    sprintf(['Drawn only where a rank-sum test resolves it (p < %.2g). ' ...
+    'A session dispatches handles, so it does not pay this.'], C.LOOKUP_ALPHA)})
 ax.Subtitle.Interpreter = 'none';   % find_parameter is not a subscript
 end
 
 
-function [lab, cost] = lookupCost_(S)
-% One entry per measurement timed both ways, scalars first.
-lab = strings(0, 1);
-cost = zeros(0, 1);
+function lab = lookupLabels_(L)
+% "ScalarWrite"; "BufferWrite, 4096 samples": a buffer row is labelled by
+% the samples the call moved, which for a read is what came back, not the
+% length requested. The parameter is added where that alone is ambiguous.
+lab = L.Role;
+isBuf = ismember(L.Role, ["BufferWrite", "BufferRead"]);
+lab(isBuf) = L.Role(isBuf) + ", " + L.NMoved(isBuf) + " samples";
+[~, ~, g] = unique(lab);
+dup = accumarray(g, 1) > 1;
+lab(dup(g)) = lab(dup(g)) + " (" + L.Parameter(dup(g)) + ")";
+end
+
+
+function L = lookupTable_(raw, S)
+% One row per measurement timed both ways, scalars first: the by-handle and
+% by-name medians, their difference, a two-sided Wilcoxon rank-sum p-value
+% over the two sets of timed calls, and a Status:
+%   "resolved"         p < LOOKUP_ALPHA and the by-name calls were slower
+%   "below resolution" p >= LOOKUP_ALPHA: inside the spread of the calls
+%   "negative"         p < LOOKUP_ALPHA but the by-name calls were FASTER,
+%                      which a lookup cannot cause: the two blocks ran at
+%                      different moments and the device drifted between them
+C = defaults_();
+L = emptyLookup_();
+if isempty(S)
+    return
+end
 byHandle = S(S.Path == "param", :);
 roleOrder = ["ScalarWrite", "ScalarRead", "Trigger", "BufferWrite", "BufferRead"];
 [~, order] = sortrows([double(arrayfun(@(r) find(roleOrder == r, 1), byHandle.Role)), ...
     byHandle.NRequested]);
 byHandle = byHandle(order, :);
 for k = 1:height(byHandle)
-    j = find(S.Path == "name" & S.Role == byHandle.Role(k) & ...
-        S.Parameter == byHandle.Parameter(k) & S.NRequested == byHandle.NRequested(k), 1);
+    h = byHandle(k, :);
+    j = find(S.Path == "name" & S.Role == h.Role & S.Parameter == h.Parameter & ...
+        S.NRequested == h.NRequested, 1);
     if isempty(j)
         continue
     end
-    name = byHandle.Role(k);
-    if ismember(name, ["BufferWrite", "BufferRead"])
-        name = sprintf('%s, N=%d', name, byHandle.NRequested(k));
+    inBlock = @(path) raw.Seconds(raw.Role == h.Role & raw.Parameter == h.Parameter & ...
+        raw.NRequested == h.NRequested & raw.Path == path);
+    p = ranksum(inBlock("param"), inBlock("name"));
+    cost = S.Median_s(j) - h.Median_s;
+    if p >= C.LOOKUP_ALPHA
+        status = "below resolution";
+    elseif cost > 0
+        status = "resolved";
+    else
+        status = "negative";
     end
-    lab(end+1, 1) = name;
-    cost(end+1, 1) = S.Median_s(j) - byHandle.Median_s(k);
+    L = appendRow_(L, table(h.Role, h.Parameter, h.NRequested, h.NTransferred, ...
+        h.Median_s, S.Median_s(j), cost, p, status, ...
+        'VariableNames', L.Properties.VariableNames));
 end
 end
 
@@ -1722,29 +2042,32 @@ end
 
 function T = emptyContractTable_()
 T = table(strings(0, 1), strings(0, 1), hw.Parameter.empty(0, 1), strings(0, 1), ...
-    strings(0, 1), strings(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), ...
+    strings(0, 1), strings(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), ...
     strings(0, 1), strings(0, 1), strings(0, 1), ...
     'VariableNames', {'Role', 'Parameter', 'Param', 'Source', 'Type', 'Access', ...
-    'Capacity', 'DeclaredSize', 'N', 'SizeSource', 'NamePath', 'Note'});
+    'Capacity', 'DeclaredSize', 'Holds', 'N', 'SizeSource', 'NamePath', 'Note'});
 end
 
 
-function row = contractRow_(role, P, source, capacity, declared, N, sizeSource, nm, note)
+function row = contractRow_(role, P, source, capacity, declared, holds, N, sizeSource, nm, note)
+% holds: what the buffer is known to hold (capacity, declared size or the N
+% in its name), NaN when only a read or nothing said.
 arguments
     role (1,1) string
     P (1,1) hw.Parameter
     source (1,1) string
     capacity (1,1) double
     declared (1,1) double
+    holds (1,1) double
     N (1,1) double
     sizeSource (1,1) string
     nm (1,1) string
     note (1,1) string
 end
 row = table(string(role), string(P.Name), P, string(source), string(P.Type), ...
-    string(P.Access), capacity, declared, N, string(sizeSource), string(nm), string(note), ...
+    string(P.Access), capacity, declared, holds, N, string(sizeSource), string(nm), string(note), ...
     'VariableNames', {'Role', 'Parameter', 'Param', 'Source', 'Type', 'Access', ...
-    'Capacity', 'DeclaredSize', 'N', 'SizeSource', 'NamePath', 'Note'});
+    'Capacity', 'DeclaredSize', 'Holds', 'N', 'SizeSource', 'NamePath', 'Note'});
 end
 
 
@@ -1768,18 +2091,28 @@ end
 function T = emptyFit_()
 T = table(strings(0, 1), strings(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), ...
     zeros(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), ...
-    false(0, 1), strings(0, 1), ...
+    false(0, 1), zeros(0, 1), strings(0, 1), ...
     'VariableNames', {'Role', 'Path', 'NumSizes', 'NMin', 'NMax', 'Overhead_s', ...
     'PerSample_s', 'RSquared', 'TargetSamples', 'Predicted_s', ...
-    'PredictedTwoBuffers_s', 'Extrapolated', 'Note'});
+    'PredictedTwoBuffers_s', 'Extrapolated', 'ExtrapolationFactor', 'Note'});
 end
 
 
 function T = emptyRoundTrip_()
 T = table(strings(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), ...
+    zeros(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), ...
     false(0, 1), strings(0, 1), ...
-    'VariableNames', {'Parameter', 'NWritten', 'NRead', 'MaxAbsError', ...
+    'VariableNames', {'Parameter', 'NWritten', 'NRead', 'NCompared', 'NMismatched', ...
+    'MismatchRuns', 'FirstMismatch', 'LastMismatch', 'MaxAbsError', ...
     'Tolerance', 'Pass', 'Note'});
+end
+
+
+function T = emptyLookup_()
+T = table(strings(0, 1), strings(0, 1), zeros(0, 1), zeros(0, 1), zeros(0, 1), ...
+    zeros(0, 1), zeros(0, 1), zeros(0, 1), strings(0, 1), ...
+    'VariableNames', {'Role', 'Parameter', 'NRequested', 'NMoved', 'ByHandle_s', ...
+    'ByName_s', 'Cost_s', 'PValue', 'Status'});
 end
 
 

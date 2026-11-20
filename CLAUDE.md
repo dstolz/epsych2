@@ -597,11 +597,24 @@ Rules that matter:
   buffer is not uploaded twice. Do not put once-per-run work in `set.mode`:
   `mode` is `AbortSet` against the LIVE getter, and a freshly loaded circuit
   already reports Record, so that write is skipped.
-  Two more concrete hooks, `parameterCapacity(P)` (`NaN` = unknown; RPcox from
-  `PARTAG`, Synapse from its size cache) and `isSimulated()` (true only for
-  `hw.Software`/`hw.Replay`), exist so `hw.benchmarkIO` — the backend-agnostic
+  Three more concrete hooks, `parameterCapacity(P)` (`NaN` = unknown; RPcox from
+  `PARTAG`, Synapse from its size cache), `isSimulated()` (true only for
+  `hw.Software`/`hw.Replay`) and `transferContext()` (records built with
+  `hw.Interface.transferContextRecord`; default empty; RPcox reports device,
+  link, the RPcoX calls and format, and `GetCycUse` live — offline, the module
+  configuration with no COM call — and its call strings must change with
+  `TDTRP.write`/`read`), exist so `hw.benchmarkIO` — the backend-agnostic
   I/O timer, standing proof `tmp/smoke_test_hw_benchmark_io.m` — never branches
-  on class (documentation/hw/hw_benchmarkIO.md)
+  on class. It calls nothing below `hw.Interface`; the RPcoX calls themselves
+  are timed by the separate rig script `tmp/diag_rpcox_buffer_transfer.m`. Two
+  things it reports that a reader would otherwise re-derive: under a whole-tag
+  read a buffer's read is timed ONCE per path (later read sizes are
+  `Unsupported`, since each would repeat one transfer) and labelled by the
+  samples it moved; and the `hw.Software` floor is a backend that writes,
+  logs and probes nothing, so `AboveFloor_s` includes the real backend's
+  connection probe and per-write log record, not just transport. A failed
+  round trip is a `Problems` row, a red figure heading and the first thing on
+  RunExpt's status line (documentation/hw/hw_benchmarkIO.md)
 - **hw.Module**: Parameter container
 - **hw.Parameter**: Single parameter with validation and callbacks
 - **Concrete Backends**:

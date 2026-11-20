@@ -9,6 +9,10 @@ function smoke_test_hw_benchmark_runexpt()
 %   3) a benchmark left to finish leaves its results in the base workspace and
 %      also gives the controls back
 %   4) a Run/Preview click that arrives mid-benchmark does nothing
+%   5) a failed round trip reaches the status line: the Software protocol's
+%      by-design failure is marked as a simulated interface's, and a
+%      device's failure (built as a results struct, since no hardware is
+%      attached) reads ROUND TRIP FAILED, worst news first
 %
 % The button press comes from a timer, which fires at the drawnow inside the
 % benchmark's CancelFcn -- the same way an operator's click reaches it.
@@ -100,6 +104,33 @@ assert(isequal(isOn(ctl()), [true true false false]), 'a finished benchmark rest
 assert(contains(rx.H.statusBar.Label.Text, 'finished', IgnoreCase = true), ...
     'the status bar must say the benchmark finished (got "%s")', rx.H.statusBar.Label.Text);
 fprintf('PASS: a finished benchmark keeps its results and restores the controls\n');
+
+% 5. Round-trip failure on the status line ----------------------------------
+Rb = evalin('base', 'benchmarkIO_results');
+assert(any(Rb.Problems.Role == "RoundTrip") && all(contains(Rb.Problems.Reason(Rb.Problems.Role == "RoundTrip"), "simulated")), ...
+    'hw.Software''s by-design round-trip failure must be a Problems row that says the interface is simulated');
+assert(contains(rx.H.statusBar.Label.Text, 'round trip failed on Buf (simulated interface'), ...
+    'the status bar must report the simulated round-trip failure as such (got "%s")', rx.H.statusBar.Label.Text);
+assert(isempty(Rb.Environment.Transfer) && isstruct(Rb.Environment.Transfer), ...
+    'hw.Software reports no transfer context');
+
+Rd = Rb;
+Rd.Environment.IsSimulated = false;
+Rd.Problems = table("RoundTrip", "Buf", "param", ...
+    "round trip failed at N=1024: 50 of 1024 samples differ, in one contiguous run", ...
+    'VariableNames', {'Role', 'Parameter', 'Path', 'Reason'});
+Rd.Unsupported = table("Buffers", "Buf", "", "size 4096 exceeds the 2048 samples this buffer holds", ...
+    'VariableNames', {'Role', 'Parameter', 'Path', 'Reason'});
+[st, detail] = epsych.RunExpt.benchmarkStatus_(Rd, 'Rig');
+assert(startsWith(st, 'I/O benchmark of Rig finished; ROUND TRIP FAILED on Buf (1 check(s)); 1 buffer size(s) skipped'), ...
+    'a device''s round-trip failure leads the status line (got "%s")', st);
+assert(contains(detail, 'RoundTrip') && contains(detail, 'hw_benchmarkIO.md'), ...
+    'the detail points at the RoundTrip table and the documentation (got "%s")', detail);
+Rd.Problems = Rd.Problems([], :);
+Rd.Unsupported = Rd.Unsupported([], :);
+assert(strcmp(epsych.RunExpt.benchmarkStatus_(Rd, 'Rig'), 'I/O benchmark of Rig finished.'), ...
+    'a clean run says only that it finished');
+fprintf('PASS: a failed round trip reaches the status line, simulated or not\n');
 
 fprintf('\nAll hw.benchmarkIO RunExpt checks passed.\n');
 end

@@ -6,11 +6,13 @@ function of buffer length. It works on any `hw.Interface`, because it calls only
 the methods the runtime calls: `set_parameter`, `get_parameter`, `trigger`,
 `find_parameter` and `all_parameters`.
 
-Two `hw.Interface` hooks supply what the utility would otherwise have to get by
+Three `hw.Interface` hooks supply what the utility would otherwise have to get by
 checking the backend's class (see [hooks](#hw-layer-hooks)):
 
 - `parameterCapacity` gives the element count behind a buffer.
 - `isSimulated` says whether a device sits behind the interface at all.
+- `transferContext` describes the conditions a transfer time depends on
+  (device model, link, the driver calls and sample format, cycle usage).
 
 There is no `isa(iface, ...)` test anywhere in the function. The standing proof
 checks for that.
@@ -50,16 +52,45 @@ figure labels every box, dot and legend entry with its path in words.
 **The HAL floor.** With `CompareToSoftware` on (the default), the same contract is
 run again on an in-memory twin: an `hw.Software` interface holding one parameter
 per contract parameter, with the same name, type, access, trigger flag,
-visibility and bounds, at the same sizes. The twin's medians are EPsych's own
-overhead with no transport under it, and `Floor.AboveFloor_s` is what the device
-path adds. This is the backend-agnostic replacement for a raw-transport baseline:
-nothing below the HAL is ever called. The floor is skipped when the interface is
-itself simulated.
+visibility and bounds, at the same sizes. `Floor.AboveFloor_s` is the device's
+median minus the twin's. Nothing below the HAL is ever called.
+
+The floor is **not** "EPsych's own overhead" in full. It is the cost of calling
+into a backend method that does almost nothing:
+
+| | `hw.Software` (the twin) | `hw.TDT_RPcox`, for comparison |
+|---|---|---|
+| `set_parameter` | resolves a name (by-name path only), returns 1. Writes nothing and logs nothing | `IsConnected` probe (a `GetStatus` COM call per module), name lookup (by-name path), `TDTRP.write` (tag-size check, the RPcoX call), a level-4 `vprintf` record, which the log file takes by default |
+| `get_parameter` | returns `NaN`. Does not resolve a name, and moves no data | `IsConnected` probe, name lookup (by-name path), whole-tag `ReadTagVEX` |
+| `trigger` | returns `now` | `IsConnected` probe, two writes and a 1 ms `pause` |
+
+So `AboveFloor_s` is the transport **plus** the connection probe, the log
+record and the value formatting the real backend does and the twin does not.
+To separate the logging part, run once at the default `GLogVerbosity` and once
+at 3 (see *Running it*). The floor is skipped when the interface is itself
+simulated.
 
 **Round trip.** With `VerifyRoundTrip` on (the default), each readable buffer is
-written once more with a fresh vector, then read back through its `hw.Parameter`.
-The read is compared at float32 precision, allowing one ulp per element. A
-mismatch is a row with `Pass = false` and its `MaxAbsError`. It is not an error.
+written once more, at each size, with a fresh vector, then read back through its
+`hw.Parameter`. The first `NWritten` samples read are compared at float32
+precision, allowing one ulp per element; a backend that reads the whole tag back
+returns more, and what lies past `NWritten` is not checked. `RoundTrip` reports
+how many samples were compared (`NCompared`), how many differ (`NMismatched`),
+in how many contiguous runs (`MismatchRuns`), and where (`FirstMismatch`,
+`LastMismatch`). One contiguous run of mismatches is what a buffer the device is
+itself writing into leaves behind (a running write index); a run that touches
+both ends of what was compared is reported as one that may have wrapped.
+
+A failed round trip is not an error, but it is never quiet:
+
+- it is a `Problems` row (`Role = "RoundTrip"`) naming the size and the note;
+- it is logged at level 0 (level 1 on a simulated interface, see below);
+- it heads the figure in red (**ROUND TRIP FAILED**, one line per failed check);
+- RunExpt puts it first on the status line.
+
+`hw.Software` keeps nothing it is written and reads `NaN`, so a round trip on it
+fails **by design**; on a simulated interface the `Problems` reason and the
+status line say so.
 
 **Refusals.** A disconnected interface is refused unless `isSimulated()` is
 true. `hw.TDT_RPcox`, `hw.TDT_Synapse`, `hw.Teensy`, `hw.Bpod`, `hw.Intan_RHX`
@@ -145,11 +176,30 @@ buffer and size.
 **Several sizes on one tag.** The fit `t = Overhead + PerSample*N` needs two
 distinct lengths, which one `Buf` tag now supplies through `Sizes`. Each size is
 its own `Summary` row (the requested size is part of the grouping) and its own
-round-trip check. A write sends exactly `N` samples. A backend that reads the
-**whole tag** back returns its full size whatever was written, so the
-`BufferRead` fit then sees one distinct length and reports `NaN` terms; that is
-the device's behaviour, not a missing measurement. Size the tag for the largest
-length you will ask for.
+round-trip check. A write sends exactly `N` samples.
+
+**Whole-tag reads.** A backend that reads the **whole tag** back
+(`hw.TDT_RPcox`: `TDTRP.read` with no size) returns its full size whatever was
+written, so on one tag every read is the same transfer. Once a read returns
+more samples than its block asked for, the later read blocks of that buffer and
+path are **not timed**: each is an `Unsupported` row (`BufferRead`, "not timed at
+N=...: the read at N=... returned ... samples, the whole buffer"). So a read is
+timed once per path, at the first size, and labelled by what it moved:
+
+- the progress line reads `moved 1000000 samples (the whole buffer, not the 1024 requested)`;
+- `Summary.NTransferred` is what moved (`NRequested` is the block it was timed in);
+- the buffer and throughput plots place it at the samples moved;
+- the lookup-cost panel labels it `BufferRead, 1000000 samples`.
+
+The `BufferRead` fit then sees one distinct length and reports `NaN` terms; that
+is the device's behaviour, not a missing measurement. To time reads at several
+lengths under `hw.TDT_RPcox`, use one tag per length (`Buf_1024`, `Buf_4096`,
+...), each discovered and timed at its own size. A read that returns **fewer**
+samples than asked (the twin's `NaN`) does not trigger the skip.
+
+Size the tag for the largest length you will ask for. With a whole-tag read, a
+large tag also makes every read (and every round-trip check) pay for the whole
+tag.
 
 **By-name path.** The name is timed only when `find_parameter`, at its default
 visibility, resolves it to the same parameter. Most backends call
@@ -164,19 +214,52 @@ timed.
 | Field | Content |
 |---|---|
 | `Raw` | one row per timed call: `Role, Parameter, Backend, Path, NRequested, NTransferred, Iteration, Seconds, Accepted`. `Accepted` is false only where `set_parameter` returned false |
-| `Summary` | per Role/Parameter/Path: `Min_s`, `P5_s`, `Median_s`, `Mean_s`, `P95_s`, `Max_s` (`prctile`, `median`, `mean`) — the same six the progress log prints for each measurement as it finishes. For buffers also `MSamplesPerSec`, `MBPerSec` and `MbitPerSec` (= 8 × `MBPerSec`) at 4 bytes per sample. **TX is the `BufferWrite` rows and RX the `BufferRead` rows**; the rate uses the samples actually moved, so a whole-tag read counts the full tag. The figure's Throughput panel plots it against size, by handle, with the ceiling the fit implies (1 / `PerSample_s`) |
-| `Fit` | per buffer role and path: `t = Overhead_s + PerSample_s*N` (least squares over the per-size medians). `Predicted_s` at `TargetSamples`, `PredictedTwoBuffers_s` = two such calls, and `Extrapolated` when `TargetSamples` lies outside the sizes measured. Needs two distinct sizes. With one, both terms are `NaN` |
-| `RoundTrip` | per readable buffer: `NWritten`, `NRead`, `MaxAbsError`, `Tolerance` (largest ulp of the data), `Pass`, `Note` |
+| `Summary` | per Role/Parameter/Path/NRequested: `Min_s`, `P5_s`, `Median_s`, `Mean_s`, `P95_s`, `Max_s` (`prctile`, `median`, `mean`) — the same six the progress log prints for each measurement as it finishes. For buffers also `MSamplesPerSec`, `MBPerSec` and `MbitPerSec` (= 8 × `MBPerSec`) at 4 bytes per sample. **TX is the `BufferWrite` rows and RX the `BufferRead` rows**; the rate uses the samples actually moved, so a whole-tag read counts the full tag. The figure's Throughput panel plots it against size, by handle, with the ceiling the fit implies (1 / `PerSample_s`) |
+| `Fit` | per buffer role and path: `t = Overhead_s + PerSample_s*N` (least squares over the per-size medians). `Predicted_s` at `TargetSamples`, `PredictedTwoBuffers_s` = two such calls, `Extrapolated` when `TargetSamples` lies outside the sizes measured, and `ExtrapolationFactor` (`TargetSamples / NMax`, or `NMin / TargetSamples`; 1 inside the range). `Note` carries the "does not bracket" sentence below. Needs two distinct sizes. With one, both terms are `NaN` |
+| `Lookup` | per measurement timed both ways: `NRequested`, `NMoved`, `ByHandle_s`, `ByName_s`, `Cost_s` (by name minus by handle), `PValue` (two-sided Wilcoxon rank-sum over the two sets of timed calls, `ranksum`) and `Status`: `resolved` (p < 0.05 and by name slower), `below resolution` (p ≥ 0.05), or `negative` (p < 0.05 but by name *faster*) |
+| `RoundTrip` | per readable buffer and size: `NWritten`, `NRead`, `NCompared`, `NMismatched`, `MismatchRuns`, `FirstMismatch`, `LastMismatch`, `MaxAbsError`, `Tolerance` (largest ulp of the data), `Pass`, `Note` |
 | `Floor` | per Summary row: `Backend_s`, `Floor_s` (the twin's median), `AboveFloor_s` |
 | `Software` | the twin's own results struct (empty when not run) |
-| `Contract` | what filled each role, from where (`explicit`/`discovered`), `Capacity`, `DeclaredSize`, `N`, `SizeSource`, `NamePath` |
-| `Unsupported` | `Role, Parameter, Path, Reason` |
-| `Problems` | blocks that threw, had writes rejected, or returned varying lengths |
-| `Environment` | date, MATLAB version and release, computer, backend class/type/label, `IsSimulated`, `IsConnected`, `Mode`, creation spec, modules (Label, Name, Index, Fs, Info), `EPsychCommit`, `GVerbosity`, `GLogVerbosity`, `Level4ToConsole`, `Level4ToLog`, `TicTocOverhead_s`, `PayloadSeed` |
+| `Contract` | what filled each role, from where (`explicit`/`discovered`), `Capacity`, `DeclaredSize`, `Holds` (what the buffer is known to hold: capacity, declared size or the `N` in its name; `NaN` when only a read said), `N`, `SizeSource`, `NamePath` |
+| `Unsupported` | `Role, Parameter, Path, Reason`, including sizes a buffer cannot hold and whole-tag reads not repeated |
+| `Problems` | blocks that threw, had writes rejected, or returned varying lengths, and every failed round trip (`Role = "RoundTrip"`) |
+| `Environment` | date, MATLAB version and release, computer, backend class/type/label, `IsSimulated`, `IsConnected`, `Mode`, creation spec, modules (Label, Name, Index, Fs, Info), `Transfer` (below), `EPsychCommit`, `GVerbosity`, `GLogVerbosity`, `Level4ToConsole`, `Level4ToLog`, `TicTocOverhead_s`, `PayloadSeed` |
+
+`Environment.Transfer` is what the interface's `transferContext` hook reports,
+one record per device link, read before any timing: `Module`, `Device`, `Link`,
+`DeviceNumber`, `SampleRate`, `CycleUsage` (percent) and `CycleUsageSource`
+(`live`, `at circuit load`, `not connected` or `unavailable`), `WriteCall`,
+`ReadCall`, `SampleFormat`, `Notes`. It is empty for a backend that does not
+override the hook. Vendor transfer rates are quoted for stated conditions
+(TDT's for RZ devices over Optibit at 50% cycle usage with 1,000,000-sample
+transfers), so compare against them only with this record beside the timing.
+
+### The figure
+
+- **Buffers** (top left): median per size with 5th–95th percentile bars, the
+  linear fit (solid over the sizes timed, **dashed** beyond them), and a
+  pentagram at `TargetSamples`. The pentagram is **hollow** and its label reads
+  `EXTRAPOLATED 4.5x beyond the largest size timed` when the prediction lies
+  outside the sizes timed, filled and labelled `predicted` when it does not.
+  When a buffer could hold `TargetSamples` but the sizes timed do not bracket
+  it, a note in the top-right corner says so and which size to add (it is also
+  logged at level 1 and appended to `Fit.Note`). No size is ever added for you.
+  Sizes skipped because the buffer is too small are listed bottom right.
+- **Scalars and triggers** (top right): every timed call, over a box per path.
+- **Throughput** (bottom left): bit rate against samples moved, by handle.
+- **Lookup cost** (bottom right): a bar only where `Lookup.Status` is
+  `resolved`. A `below resolution` difference is written at zero with its
+  p-value; a `negative` one is written as "by name ... faster: not a cost". The
+  by-name and by-handle blocks run at different moments, so a resolved
+  difference can still include drift between them; a negative one *is* drift,
+  since a lookup cannot make a call faster. Labels name buffer rows by the
+  samples the call moved.
+- A failed round trip puts a red **ROUND TRIP FAILED** heading over all four.
 
 For a write, `NTransferred` is what was handed to `set_parameter`. Nothing in the
 interface reports what the device accepted beyond the return flag. For a read,
-it is what came back, and the buffer-read fit uses that length.
+it is what came back, and the buffer-read fit, the plots and the lookup labels
+use that length.
 
 ### Worked example
 
@@ -200,7 +283,10 @@ time. Compare `Floor.AboveFloor_s` for the same row: if the twin's median is a
 few tens of microseconds, almost all of those 36 ms are transport.
 
 Check `Extrapolated`: with 300000 and 600000 measured, 292969 lies inside the
-range and the prediction is an interpolation.
+range and the prediction is an interpolation. Had the largest size been 65536,
+`ExtrapolationFactor` would be 4.47 and the pentagram hollow: a linear fit
+carried 4.5x past the data assumes the per-sample cost stays constant over a
+range nobody measured.
 
 ---
 
@@ -245,7 +331,31 @@ to the experiment circuit:
 | `WScalar` | a parameter tag on a writable constant (e.g. a `ConstF` value) | Float, Access `Any` |
 | `RScalar` | a tag on a value that changes, e.g. a counter's output | read as a scalar |
 | `!BenchTrig` | a tag on a logic input the circuit can pulse (`trigger` writes 1, waits 1 ms, writes 0, so the 1 ms `pause` is part of the trigger time) | `isTrigger = true` (the `!` prefix) |
-| `Buf` | one data buffer (e.g. a serial buffer component) at least as long as the largest size you will test, tagged on its data | `Type = 'Buffer'` (tag type 68) |
+| `Buf` | one data buffer (e.g. a serial buffer component) at least as long as the largest size you will test, tagged on its data, **that the circuit itself never writes into** (below) | `Type = 'Buffer'` (tag type 68) |
+
+**The buffer must be host-only.** The benchmark writes `Buf` from MATLAB and
+reads it back. If the circuit is also writing into it — a `SerialBuf` recording
+its input, its index advancing every sample — then the DSP overwrites what the
+host just wrote, the round trip fails with one contiguous run of mismatches (or
+two touching both ends, where the index wrapped), and the write and read times
+are of a buffer the DSP is using at the same moment. The required `SerialBuf`
+configuration is:
+
+- **not recording**: its write/record input off (`Write = 0`), or the component
+  disabled so the index does not run; nothing the DSP produces may reach the
+  buffer during the benchmark;
+- **`Size`** at least the largest length you will test. Because
+  `hw.TDT_RPcox` reads the whole tag, every read and every round-trip check
+  then moves `Size` samples; size it no larger than you need;
+- the `Buf` parameter tag on the buffer's data, as now.
+
+The committed `examples/hw_benchmark/HwBenchmark_TDT_RPcox.rcx` was read with
+`strings`, **not confirmed in RPvdsEx**: its `SerialBuf` is stored with
+`Size=1e+06`, `AccEnab=1`, `Write=1`, `Rst=0`, with the `Buf` tag on `{>Data}`
+and an input port wired. If that reading is right, the DSP writes into `Buf`
+continuously. Open it in RPvdsEx, confirm, and if so change it as above (see
+[examples/hw_benchmark/README.md](../../examples/hw_benchmark/README.md)); a
+passing round trip at every size is the check that the change worked.
 
 Notes:
 
@@ -261,8 +371,9 @@ Notes:
   largest length you will test (4096 for the default dialog sizes; 300000 to
   bracket a 3 s stimulus) is held on the processor in addition to whatever the
   experiment circuit already holds. Confirm it fits in the RPvdsEx compile report.
-  `TargetSamples` is extrapolated (and flagged) when it lies outside the sizes
-  tested.
+  `TargetSamples` is extrapolated (hollow pentagram, `ExtrapolationFactor`) when
+  it lies outside the sizes tested. To interpolate a 3 s stimulus, include a
+  size of at least 292969, e.g. `1024 4096 65536 300000`.
 - **Do not hold the same processor in two interfaces.** A protocol must not have
   both an `hw.TDT_RPcox` and an `hw.TDT_Synapse` for one RZ6.
 - **Synapse refuses parameter access at Idle.** Run it with Synapse in a runtime
@@ -313,7 +424,7 @@ matrix runs. There are no buffers.
 | `hw.Intan_RHX` | RHX parameters by their command names | yes | no: on a Stim/Record controller it delivers a manual stimulation pulse, and on a Recording controller it is ignored without a transaction | no |
 | `hw.NE1000` | pump settings, never while dispensing | yes | no: `Start`/`Stop` move the syringe | no |
 | `hw.VlcRecorder` | host-side strings only | host-side only | no: triggers launch and stop VLC | no |
-| `hw.Software`, `hw.Replay` | EPsych overhead only (simulated) | `hw.Software` reads return `NaN` (values live in `hw.Parameter`). `hw.Replay` reads the record | overhead only | `hw.Software` round trips fail by design |
+| `hw.Software`, `hw.Replay` | the in-memory call only (simulated; see the floor) | `hw.Software` reads return `NaN` (values live in `hw.Parameter`). `hw.Replay` reads the record | the call only | `hw.Software` round trips fail by design, and are reported as a simulated interface's |
 
 ---
 
@@ -325,8 +436,17 @@ matrix runs. There are no buffers.
   `Max_s`, which is why the medians, not the means, are fitted.
 - **Whole-tag reads.** `hw.TDT_RPcox` reads a buffer's whole tag
   (`TDTRP.read` with no size), so read time follows the tag's capacity, not what
-  was written. `NTransferred` records the length actually returned, and the read
-  fit uses it.
+  was written. `NTransferred` records the length actually returned, the read is
+  timed once per path (see *Whole-tag reads* above), and the read fit uses that
+  length. The round trip compares only the first `NWritten` samples of it.
+- **What a buffer time does not tell you.** A per-sample cost far from a
+  vendor's figure locates the cost below `hw.Interface` (in `TDTRP.write`, the
+  RPcoX call, its argument marshalling, or the device), not which of those it
+  is. The [raw-transport diagnostic](#raw-transport-diagnostic) times the RPcoX
+  calls directly to narrow that down.
+- **Lookup cost is a difference of two medians** taken at different moments.
+  It is drawn only where a rank-sum test resolves it, and a negative one is
+  reported as drift, never as a cost.
 - **Logging.** RPcox and Synapse writes log at level 4, and the log takes
   everything by default. That cost is inside every write time. See *Running it*.
 - **The runtime's wrappers are not included.** A session writes through
@@ -349,25 +469,68 @@ matrix runs. There are no buffers.
 
 ## hw-layer hooks
 
-Both hooks are concrete on `hw.Interface` with safe defaults, following the
+All three hooks are concrete on `hw.Interface` with safe defaults, following the
 `connectionRecoveryLabel`/`canRunOffline` pattern. No existing backend needed an
-edit to keep working. See [hw_Interface.md](hw_Interface.md#parametercapacity--issimulated).
+edit to keep working. See [hw_Interface.md](hw_Interface.md#parametercapacity--issimulated--transfercontext).
 
 | Hook | Default | Overrides |
 |---|---|---|
 | `parameterCapacity(P)` | `NaN` | `hw.TDT_RPcox`: `TDTRP.PARTAG` tag size, with no COM call. `hw.TDT_Synapse`: its per-connection size cache |
 | `isSimulated()` | `false` | `hw.Software`, `hw.Replay`: `true` |
+| `transferContext()` | empty record array (`hw.Interface.transferContextRecord()`) | `hw.TDT_RPcox`: one record per module — device type, link (`GB`/`USB`), device number, sample rate, `GetCycUse` read live (falling back to the value read at circuit load), the `TDTRP.write`/`TDTRP.read` calls and `F32`. Offline it reports the module configuration and `NaN` cycle usage, with no COM call |
 
 No registry site changes: the utility adds no backend, so
 [hw_Interface_Tutorial.md](hw_Interface_Tutorial.md)'s four sites are untouched.
+
+## Raw-transport diagnostic
+
+`tmp/diag_rpcox_buffer_transfer.m` is the step below `hw.benchmarkIO`, kept
+separate so the benchmark stays backend-agnostic. Given a **connected**
+`hw.TDT_RPcox` and a buffer tag, it times the RPcoX calls directly at several
+lengths up to the tag's capacity:
+
+- `WriteTagVEX(tag, 0, 'F32', single)` — the current path (`TDTRP.write`);
+- `WriteTagV` with `single` data, and with `double` data;
+- `WriteTagVEX(tag, 0, 'I16', int16)`;
+- `ReadTagVEX(..., 'F32', 'F32', 1)` and `ReadTagV`, each at every requested
+  length and at the whole tag.
+
+Every write is verified over its **full** length by an untimed read-back, and
+every RPcoX return value is checked. It records `GetCycUse` (per measurement,
+and at start and end), `GetSFreq`, `GetStatus`, the tag's type and size, the
+device type, number and interface, then prints one table and saves it
+(`.mat` and `.csv`).
+
+```matlab
+% at the rig, between sessions, on an interface that is already connected
+T = diag_rpcox_buffer_transfer(iface, "Buf", Sizes=[1024 4096 65536 300000 1000000]);
+```
+
+It never connects, never loads a circuit, and leaves random data (including
+int16 data the circuit will read as meaningless floats) in the tag; the next
+Run reloads the circuit. The `I16` read-back convention is RPcoX's and is not
+confirmed here, so a mismatch on that row alone may be the convention rather
+than the write. Nothing in `TDTRP` changes on the strength of this script: if
+its table shows a faster call that also verifies, that is a recommendation to
+change `TDTRP.write`/`TDTRP.read`, to be made and reviewed separately. It is COM
+work, so restart a persistent MATLAB session afterwards (CLAUDE.md).
 
 ## Standing proof
 
 `tmp/smoke_test_hw_benchmark_io.m` runs headless, in memory, and opens no
 window. It uses `hw.Software` and `tmp/BenchLoopbackInterface.m`, an
-`hw.Software` that keeps what it is written. The offline hook checks also use an
-`hw.TDT_RPcox` and an `hw.TDT_Synapse` constructed with `Connect=false`, and
-`hw.TDT_Synapse` over `tmp/SynapseAPI_Mock`.
+`hw.Software` that keeps what it is written and can be told to read back a
+whole tag (`ReadWhole`), clobber a run of samples as a circuit writing into the
+buffer would (`ClobberRun`), and delay calls by path (`NameDelay`,
+`HandleDelay`, `AlternateDelay`) so each lookup-cost status is reproduced
+deterministically. The offline hook checks also use an `hw.TDT_RPcox` and an
+`hw.TDT_Synapse` constructed with `Connect=false`, and `hw.TDT_Synapse` over
+`tmp/SynapseAPI_Mock`. `tmp/smoke_test_hw_benchmark_runexpt.m` covers the
+RunExpt menu item, including the status line for a failed round trip.
+
+What only a rig can confirm: the `SerialBuf` reading of the committed circuit,
+`transferContext`'s live branch (`GetCycUse` on a connected device), and
+everything `tmp/diag_rpcox_buffer_transfer.m` measures.
 
 ```matlab
 matlab -batch "run('tmp/smoke_test_hw_benchmark_io.m')"

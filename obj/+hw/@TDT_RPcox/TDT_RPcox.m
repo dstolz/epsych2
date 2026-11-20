@@ -339,6 +339,45 @@ classdef TDT_RPcox < hw.Interface
             end
         end
 
+        function ctx = transferContext(obj)
+            % ctx = transferContext(obj)
+            % One record per module: device type, link ('GB' or 'USB'),
+            % device number, sample rate, the RPcoX calls TDTRP.write and
+            % TDTRP.read make for an array, and the processor's cycle usage.
+            % TDT quotes its transfer rates at a stated cycle usage, so a
+            % buffer time means little without it.
+            %
+            % Cycle usage is read live (one GetCycUse per module) when the
+            % device is connected; if that call fails, the value TDTRP.setup
+            % read at the last circuit load is reported instead and
+            % CycleUsageSource says so. Offline, everything the module's
+            % configuration holds is still reported and CycleUsage is NaN.
+            % Never throws.
+            %
+            % The call strings describe TDTRP.write/TDTRP.read as they stand;
+            % change them together.
+            %
+            % See also: hw.Interface.transferContext, TDTRP
+            ctx = hw.Interface.transferContextRecord();
+            try
+                connected = obj.IsConnected;
+            catch
+                connected = false;
+            end
+
+            for idx = 1:numel(obj.Module)
+                try
+                    ctx = [ctx, rpcoxTransferRecord_(obj, idx, connected)];
+                catch ME
+                    % A record that cannot be built still says which module
+                    % it is, so the gap is visible rather than missing.
+                    ctx = [ctx, hw.Interface.transferContextRecord( ...
+                        Module = char(string(obj.Module(idx).Name)), ...
+                        Notes = sprintf('context not available: %s', ME.message))];
+                end
+            end
+        end
+
         function setModules(obj, modules)
             if obj.IsConnected
                 error('hw:TDT_RPcox:ConnectedModuleEdit', ...
@@ -500,18 +539,28 @@ classdef TDT_RPcox < hw.Interface
             trig = obj.getHardwareParameterName(P);
             hwHandle = obj.HW(P.Module.Index);
             e = hwHandle.write(trig,1);
-            
+
             t = now;
-            
-            if ~e, throwerrormsg(module,trig); end
+
+            % A rising edge that never went out is an error: the caller
+            % believes an event happened on the device. The failure branches
+            % used to name an undefined variable, so either one threw
+            % "Unrecognized function or variable 'module'" instead of this.
+            if ~e
+                error('hw:TDT_RPcox:TriggerFailed', ...
+                    'Unable to trigger "%s" on module "%s": writing 1 to the tag failed.', ...
+                    trig, P.Module.Label);
+            end
             pause(0.001)
-            
+
+            % The edge went out; a failed reset is logged rather than thrown,
+            % as it always was meant to be, so the caller still gets t.
             e = hwHandle.write(trig,0);
             if e
                 vprintf(3,'Triggered "%s"',P.Name)
             else
-                vprintf(0,1,'UNABLE TO TRIGGER "%s" ON MODULE "%s"',trig,module)
-                % error('UNABLE TO TRIGGER "%s" ON MODULE "%s"',trig,module)
+                vprintf(0,1,'Triggered "%s" but could not reset it to 0 on module "%s"; the tag may still be high', ...
+                    trig, P.Module.Label)
             end
         end
         
@@ -724,6 +773,56 @@ classdef TDT_RPcox < hw.Interface
 
 
     
+end
+
+function r = rpcoxTransferRecord_(obj, idx, connected)
+% One transferContext record for module idx. Offline it reports the module's
+% configuration (setup_interface stores the device type as the module Label
+% and the alias as its Name); connected it adds the live device type, number,
+% sample rate and cycle usage. The caller catches.
+m = obj.Module(idx);
+device = char(string(m.Label));
+number = NaN;
+if isfield(m.Info, 'Number') && ~isempty(m.Info.Number)
+    number = double(m.Info.Number(1));
+end
+fs = NaN;
+cyc = NaN;
+cycSource = 'not connected';
+notes = '';
+
+if connected && idx <= numel(obj.HW) && isvalid(obj.HW(idx))
+    h = obj.HW(idx);
+    device = char(string(h.DEVICETYPE));
+    number = double(h.NUMBER);
+    fs = double(h.FS);
+    try
+        cyc = double(h.RP.GetCycUse);
+        cycSource = 'live';
+    catch ME
+        cyc = double(h.CYC);
+        cycSource = 'at circuit load';
+        notes = sprintf('GetCycUse failed: %s', ME.message);
+    end
+    % TDTRP.CYC is -1 until setup() has run.
+    if ~(isscalar(cyc) && isfinite(cyc) && cyc >= 0)
+        cyc = NaN;
+        cycSource = 'unavailable';
+    end
+end
+
+r = hw.Interface.transferContextRecord( ...
+    Module = char(string(m.Name)), ...
+    Device = device, ...
+    Link = char(string(obj.ConnectionType)), ...
+    DeviceNumber = number, ...
+    SampleRate = fs, ...
+    CycleUsage = cyc, ...
+    CycleUsageSource = cycSource, ...
+    WriteCall = 'scalar: SetTagVal(tag, v); array: WriteTagVEX(tag, 0, ''F32'', row)', ...
+    ReadCall = 'ReadTagVEX(tag, 0, <whole tag>, ''F32'', ''F32'', 1)', ...
+    SampleFormat = 'F32', ...
+    Notes = notes);
 end
 
 function tf = localIsLoaded_(h)

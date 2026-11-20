@@ -164,7 +164,7 @@ verbosity 3:
   `Invalid field name` for every legacy processor. A scalar tag a protocol
   marks `isArray` is read as the scalar the device says it is.
 - `parameterCapacity(P)` (an `hw.Interface` hook; see
-  [hw_Interface.md](hw_Interface.md#parametercapacity--issimulated)) answers
+  [hw_Interface.md](hw_Interface.md#parametercapacity--issimulated--transfercontext)) answers
   from that same once-per-connection size, so asking it costs at most the
   `getParameterSize` the first read would have made. It returns `NaN` when
   disconnected with nothing cached, or when Synapse gives no size.

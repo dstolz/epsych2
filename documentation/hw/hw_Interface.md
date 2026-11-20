@@ -299,16 +299,17 @@ I/O degrades rather than throws while disconnected — `hw.NE1000`'s `transact_`
 returns a not-ok result without touching the port, and reads serve the last
 value the device reported.
 
-### `parameterCapacity` / `isSimulated`
+### `parameterCapacity` / `isSimulated` / `transferContext`
 
 ```matlab
-n  = I.parameterCapacity(P)   % elements the device storage behind P holds; NaN = unknown
-tf = I.isSimulated()          % true when no device sits behind this interface
+n   = I.parameterCapacity(P)   % elements the device storage behind P holds; NaN = unknown
+tf  = I.isSimulated()          % true when no device sits behind this interface
+ctx = I.transferContext()      % what an I/O time depends on; empty = nothing said
 ```
 
-Two concrete hooks with safe defaults, added so that
+Three concrete hooks with safe defaults, added so that
 [`hw.benchmarkIO`](hw_benchmarkIO.md) can time any backend without asking which
-one it is. A backend that overrides neither behaves exactly as before.
+one it is. A backend that overrides none of them behaves exactly as before.
 
 - **`parameterCapacity(P)`** returns how many elements the storage behind `P`
   holds — an RPvds tag's size, a Synapse array parameter's count. The default
@@ -328,6 +329,24 @@ one it is. A backend that overrides neither behaves exactly as before.
   Several backends report a write as successful, and serve the cached `Value`,
   while disconnected (`hw.TDT_RPcox` does both), so timing them would report
   numbers for I/O that never happened.
+- **`transferContext()`** returns one record per device link describing the
+  conditions a transfer time depends on and the interface does not otherwise
+  expose: `Module`, `Device`, `Link`, `DeviceNumber`, `SampleRate`,
+  `CycleUsage` (percent) and `CycleUsageSource`, `WriteCall`, `ReadCall`,
+  `SampleFormat`, `Notes`. Build each record with
+  `hw.Interface.transferContextRecord(Name=Value)`, whose unset fields are
+  `''`/`NaN`, so every backend's records concatenate; called with no arguments
+  it returns the 1x0 prototype, which is also the default. An override may
+  make at most one cheap device query per link, must answer while disconnected
+  with what is known offline, and must never throw. `hw.benchmarkIO` records
+  it as `results.Environment.Transfer`, read before any timing.
+  - `hw.TDT_RPcox` reports, per module, the device type, link (`GB`/`USB`),
+    device number, sample rate, the RPcoX calls `TDTRP.write`/`TDTRP.read`
+    make for an array, `F32`, and `GetCycUse` read live — falling back to the
+    value `TDTRP.setup` read at circuit load if that call fails. Offline it
+    reports the module's configuration (device type from the module `Label`)
+    and `NaN` cycle usage, with no COM call. Its call strings describe
+    `TDTRP.write`/`TDTRP.read` and must change with them.
 
 ### `displayLabel`
 

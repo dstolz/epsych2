@@ -157,7 +157,7 @@ function [action, ver] = localChooseVersion(parent, filePath, fileLabel, index)
     gCmp.Padding = [0 0 0 0];
     uilabel(gCmp, 'Text', 'Compare with:');
     ddCompare = uidropdown(gCmp, 'Items', {'(nothing to compare)'}, 'ItemsData', 0);
-    btnCompare = uibutton(gCmp, 'Text', 'Show Changes...');
+    btnCompare = uibutton(gCmp, 'Text', 'Show Changes...', 'Icon', gui.toolbarIcon("preview"));
 
     note = uilabel(g, 'WordWrap', 'on', 'FontColor', [0.45 0.48 0.52], 'Text', ...
         ['Open Copy loads a version into the designer without touching the file. ' ...
@@ -170,9 +170,9 @@ function [action, ver] = localChooseVersion(parent, filePath, fileLabel, index)
     gBtn.ColumnWidth = {'1x', 110, 110, 100};
     gBtn.Padding = [0 0 0 0];
     uilabel(gBtn, 'Text', '');
-    uibutton(gBtn, 'Text', 'Open Copy', ...
+    uibutton(gBtn, 'Text', 'Open Copy', 'Icon', gui.toolbarIcon("load"), ...
         'ButtonPushedFcn', @(~, ~) localAccept(d, lst, index, 'open'));
-    btnRestore = uibutton(gBtn, 'Text', 'Restore...', ...
+    btnRestore = uibutton(gBtn, 'Text', 'Restore...', 'Icon', gui.toolbarIcon("restore"), ...
         'ButtonPushedFcn', @(~, ~) localAccept(d, lst, index, 'restore'));
     uibutton(gBtn, 'Text', 'Cancel', 'ButtonPushedFcn', @(~, ~) uiresume(d));
 

@@ -1150,7 +1150,8 @@ in `SubjectRegistry.KNOWN_ADAPTERS`.
   files. `uitoolbar` does render in a `uifigure`, but `uibutton`/`uiimage` `Icon`
   accepts only four built-in names — `success`, `error`, `warning`, `info` — so
   every other glyph has to be drawn here or supplied as a file. Shared by
-  `epsych.RunExpt`, `gui.SubjectManager`, and `gui.components.ComponentToolbar`; a new tool
+  `epsych.RunExpt`, `gui.SubjectManager`, `epsych.ProtocolDesigner` (its
+  toolbar and its panel/dialog buttons), and `gui.components.ComponentToolbar`; a new tool
   adds a `case` to it. The component-toolbar section is the one place a MISSING
   case is not an error: those names are computed from a class name
   (`gui.components.Parameter_Monitor` → `parametermonitor`) and `gui.components.ComponentToolbar`

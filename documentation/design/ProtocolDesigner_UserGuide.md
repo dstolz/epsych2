@@ -28,19 +28,20 @@ When the window opens, the message area at the bottom shows the latest action, e
 
 The main window is a toolbar above the **Protocol Parameters** table, where you edit the parameter rows for the selected interface or module.
 
-The toolbar groups the actions you need most, left to right:
+The toolbar groups the actions you need most, left to right. Its buttons are icons; hover over one to see its name and keyboard shortcut.
 
-| Button | What it does |
+| Icon | What it does |
 |---|---|
-| **New**, **Open...**, **Save** | Start, load, and save protocol files |
-| **Interfaces...** | Add hardware or software interfaces and manage their modules (Ctrl+Shift+I) |
-| **Options...** | Trial function, compile settings, and WAV buffers (Ctrl+Shift+O) |
-| **Compile** | Build the trial matrix (Ctrl+Shift+C) |
-| **Preview...** | Compile and inspect the resulting trial list (Ctrl+Shift+V) |
-| **Check Calcs...** | Sweep expressions across their inputs and check the values (Ctrl+Shift+K) |
-| **Dependencies...** | Plot which parameters are calculated from which (Ctrl+Shift+G) |
-| **Find/Replace...** | Rename parameters in bulk (Ctrl+H) |
-| **Shortcuts** | List every keyboard shortcut |
+| Blank page, open folder, floppy disk, floppy with pencil | **New** (Ctrl+N), **Open...** (Ctrl+O), **Save** (Ctrl+S), **Save As...** (Ctrl+Shift+S) |
+| Chip | **Interfaces...**: add hardware or software interfaces and manage their modules (Ctrl+Shift+I) |
+| Gear | **Options...**: trial function, compile settings, and WAV buffers (Ctrl+Shift+O) |
+| Hammer | **Compile**: build the trial matrix (Ctrl+Shift+C) |
+| Table and magnifier | **Preview...**: compile and inspect the resulting trial list (Ctrl+Shift+V) |
+| Calculator | **Check Calcs...**: sweep expressions across their inputs and check the values (Ctrl+Shift+K) |
+| Node graph | **Dependencies...**: plot which parameters are calculated from which (Ctrl+Shift+G) |
+| Magnifier over swatches | **Find/Replace...**: rename parameters in bulk (Ctrl+H) |
+| Keyboard | **Shortcuts**: list every keyboard shortcut (Ctrl+Shift+?) |
+| Open book | **User Guide**: open this guide |
 
 Each of these dialogs opens in its own window that you can leave open beside the main window while you work. Clicking the same button again brings the existing window back to the front rather than opening a second copy.
 

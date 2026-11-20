@@ -20,39 +20,34 @@ cleanupPd = onCleanup(@() localForceClose_(pd));
 % Reach the protected UI properties the same way the class does.
 peek = @(name) localPeek_(pd, name);
 
-%% 1. Toolbar exists and holds the expected buttons
-toolbar = peek('ToolbarPanel');
+%% 1. Toolbar exists and holds the expected tools, each with an icon and a shortcut tooltip
+toolbar = peek('Toolbar');
 if isempty(toolbar) || ~isvalid(toolbar)
-    failures{end+1} = 'ToolbarPanel was not created';
+    failures{end+1} = 'Toolbar was not created';
 else
-    buttons = findobj(toolbar, 'Type', 'uibutton');
-    labels = sort(reshape(string(arrayfun(@(b) string(b.Text), buttons)), 1, []));
-    expected = sort(string({'New', 'Open...', 'Save', 'Interfaces...', 'Options...', ...
-        'Compile', 'Preview...', 'Check Calcs...', 'Dependencies...', ...
-        'Find/Replace...', 'Shortcuts'}));
-    if ~isequal(labels, expected)
-        failures{end+1} = sprintf('Toolbar buttons mismatch. Got: %s', strjoin(labels, ', '));
+    tools = findall(toolbar, 'Type', 'uipushtool');
+    tags = reshape(string(get(tools, {'Tag'})), 1, []);
+    expected = "pd_tb_" + ["new" "load" "save" "saveas" "interfaces" "gear" "compile" ...
+        "preview" "checkcalc" "dependencies" "findreplace" "keyboard" "wiki"];
+    if ~isequal(sort(tags), sort(expected))
+        failures{end+1} = sprintf('Toolbar tools mismatch. Got: %s', strjoin(tags, ', '));
     end
-
-    % Every button must be wired and every tooltip filled in.
-    for idx = 1:numel(buttons)
-        if isempty(buttons(idx).ButtonPushedFcn)
-            failures{end+1} = sprintf('Toolbar button "%s" has no callback', buttons(idx).Text);
+    for idx = 1:numel(tools)
+        t = tools(idx);
+        if isempty(t.ClickedCallback)
+            failures{end+1} = sprintf('Tool "%s" has no callback', t.Tag);
         end
-        if strlength(string(buttons(idx).Tooltip)) == 0
-            failures{end+1} = sprintf('Toolbar button "%s" has no tooltip', buttons(idx).Text);
+        if ~isequal(size(t.Icon), [16 16 3])
+            failures{end+1} = sprintf('Tool "%s" has no 16x16 icon', t.Tag);
+        end
+        if strlength(string(t.Tooltip)) == 0
+            failures{end+1} = sprintf('Tool "%s" has no tooltip', t.Tag);
         end
     end
-
-    % Buttons must fit inside the strip and not overlap each other.
-    xs = cell2mat(arrayfun(@(b) b.Position([1 3]), buttons, 'UniformOutput', false));
-    [left, order] = sort(xs(:, 1));
-    right = left + xs(order, 2);
-    if any(right(1:end-1) > left(2:end))
-        failures{end+1} = 'Toolbar buttons overlap';
-    end
-    if max(right) > toolbar.Position(3)
-        failures{end+1} = sprintf('Toolbar buttons overflow the strip (%g > %g)', max(right), toolbar.Position(3));
+    % Save As is new with the uitoolbar; its tooltip must name the shortcut.
+    saveAs = findall(toolbar, 'Tag', 'pd_tb_saveas');
+    if isempty(saveAs) || ~contains(saveAs.Tooltip, 'Ctrl+Shift+S')
+        failures{end+1} = 'Save As tool missing or its tooltip lacks Ctrl+Shift+S';
     end
 end
 

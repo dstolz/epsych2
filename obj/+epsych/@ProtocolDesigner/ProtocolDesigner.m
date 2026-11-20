@@ -32,7 +32,7 @@ classdef ProtocolDesigner < handle
         CurrentProtocolPath (1,:) char = ''
 
         MainPanel matlab.ui.container.Panel
-        ToolbarPanel matlab.ui.container.Panel  % Command strip above MainPanel.
+        Toolbar matlab.ui.container.Toolbar  % Icon toolbar (buildToolbar).
         FileMenu matlab.ui.container.Menu
         RecentProtocolsMenu matlab.ui.container.Menu
 
@@ -46,16 +46,20 @@ classdef ProtocolDesigner < handle
         EditInfo matlab.ui.control.EditField
         StatusBar gui.components.StatusBar  % Footer status-label component.
 
-        % Toolbar buttons.
-        BtnNew matlab.ui.control.Button
-        BtnLoad matlab.ui.control.Button
-        BtnSave matlab.ui.control.Button
-        BtnOpenInterfaceDialog matlab.ui.control.Button
-        BtnToolbarCompile matlab.ui.control.Button
-        BtnOpenCheckCalcDialog matlab.ui.control.Button
-        BtnShowDependencies matlab.ui.control.Button
-        BtnFindReplace matlab.ui.control.Button
-        BtnShortcuts matlab.ui.control.Button
+        % Toolbar tools.
+        BtnNew matlab.ui.container.toolbar.PushTool
+        BtnLoad matlab.ui.container.toolbar.PushTool
+        BtnSave matlab.ui.container.toolbar.PushTool
+        BtnSaveAs matlab.ui.container.toolbar.PushTool
+        BtnOpenInterfaceDialog matlab.ui.container.toolbar.PushTool
+        BtnOpenOptionsDialog matlab.ui.container.toolbar.PushTool
+        BtnToolbarCompile matlab.ui.container.toolbar.PushTool
+        BtnOpenPreviewDialog matlab.ui.container.toolbar.PushTool
+        BtnOpenCheckCalcDialog matlab.ui.container.toolbar.PushTool
+        BtnShowDependencies matlab.ui.container.toolbar.PushTool
+        BtnFindReplace matlab.ui.container.toolbar.PushTool
+        BtnShortcuts matlab.ui.container.toolbar.PushTool
+        BtnUserGuide matlab.ui.container.toolbar.PushTool
 
         DropDownInterfaceType matlab.ui.control.DropDown
         LabelInterfaceDescription matlab.ui.control.Label
@@ -69,8 +73,6 @@ classdef ProtocolDesigner < handle
         BtnRemoveInterface matlab.ui.control.Button
         BtnRemoveModule matlab.ui.control.Button
         BtnModifyInterface matlab.ui.control.Button
-        BtnOpenOptionsDialog matlab.ui.control.Button
-        BtnOpenPreviewDialog matlab.ui.control.Button
         InterfaceTree matlab.ui.container.Tree
         TableParams matlab.ui.control.Table
         BtnAddParam matlab.ui.control.Button

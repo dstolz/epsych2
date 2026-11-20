@@ -25,7 +25,8 @@ function icon = toolbarIcon(name)
 %   tb = uitoolbar(uifigure);
 %   uipushtool(tb,'Icon',gui.toolbarIcon("refresh"),'Tooltip','Refresh');
 %
-% See also: epsych.RunExpt.buildUI, gui.SubjectManager.buildUI, gui.components.ScreenCapture
+% See also: epsych.RunExpt.buildUI, gui.SubjectManager.buildUI,
+%           epsych.ProtocolDesigner.buildToolbar, gui.components.ScreenCapture
 
 arguments
     name (1,1) string
@@ -52,7 +53,9 @@ C = struct( ...
     'r',[0.83 0.16 0.16], ...  % red
     'R',[0.95 0.55 0.55], ...  % red highlight
     'o',[0.92 0.60 0.12], ...  % pencil orange
-    't',[0.83 0.66 0.44]);     % pencil wood
+    't',[0.83 0.66 0.44], ...  % pencil wood
+    'l',[0.80 0.83 0.87], ...  % light gray (a page's folded corner)
+    'B',[0.70 0.84 0.97]);     % light blue (glass of a magnifier)
 
 switch name
 
@@ -627,6 +630,274 @@ switch name
             "..g....kwwwwwwwk"
             ".......kkkkkkkkk"
             "................"
+            "................"
+            "................"];
+
+    % ---- protocol designer (epsych.ProtocolDesigner) ------------------
+
+    case "new" % blank page with a folded corner
+        rows = [ ...
+            "................"
+            "...kkkkkkk......"
+            "...kwwwwwkk....."
+            "...kwwwwwklk...."
+            "...kwwwwwkllk..."
+            "...kwwwwwkkkkk.."
+            "...kwwwwwwwwwk.."
+            "...kwwwwwwwwwk.."
+            "...kwwwwwwwwwk.."
+            "...kwwwwwwwwwk.."
+            "...kwwwwwwwwwk.."
+            "...kwwwwwwwwwk.."
+            "...kwwwwwwwwwk.."
+            "...kkkkkkkkkkk.."
+            "................"
+            "................"];
+
+    case "saveas" % floppy disk with a pencil across it
+        rows = [ ...
+            "kkkkkkkkkkkk...."
+            "kbbwwwwwwbbk...."
+            "kbbwwwwbwbbk...."
+            "kbbwwwwbwbbk...."
+            "kbbbbbbbbbbk...."
+            "kbbbbbbbbbbk.kk."
+            "kbwwwwwwwwbkkRRk"
+            "kbwsssssswbkRRk."
+            "kbwwwwwwwwkssk.."
+            "kbwsssssskook..."
+            "kbwwwwwwkook...."
+            "kkkkkkkkookk...."
+            "......kook......"
+            ".....kttk......."
+            "....ktk........."
+            "...kk..........."];
+
+    case "interfaces" % integrated circuit: the hardware a protocol talks to
+        rows = [ ...
+            "................"
+            "....s.s..s.s...."
+            "....s.s..s.s...."
+            "..kkkkkkkkkkkk.."
+            "..kwkkkkkkkkkk.."
+            "sskkkkkkkkkkkkss"
+            "..kkkkkkkkkkkk.."
+            "sskkkkkkkkkkkkss"
+            "sskkkkkkkkkkkkss"
+            "..kkkkkkkkkkkk.."
+            "sskkkkkkkkkkkkss"
+            "..kkkkkkkkkkkk.."
+            "..kkkkkkkkkkkk.."
+            "....s.s..s.s...."
+            "....s.s..s.s...."
+            "................"];
+
+    case "compile" % hammer, tilted: build the trial table
+        rows = [ ...
+            "........kk......"
+            ".......kssk....."
+            "......kssssk...."
+            "......ksssssk..."
+            ".......ksssssk.."
+            "........ksssssk."
+            ".......kttsssssk"
+            "......ktttkssssk"
+            ".....ktttk.kssk."
+            "....ktttk...kk.."
+            "...ktttk........"
+            "..ktttk........."
+            ".ktttk.........."
+            "ktttk..........."
+            ".ktk............"
+            "..k............."];
+
+    case "preview" % table under a magnifying glass
+        rows = [ ...
+            "................"
+            "kkkkkkkkkkk....."
+            "kbbbbbbbbbk....."
+            "kkkkkkkkkkk....."
+            "kwwkwwkwwwk....."
+            "kkkkkkkkkkk....."
+            "kwwkwwkwkkkk...."
+            "kkkkkkkkBBBBk..."
+            "kwwkwwkkBBBBk..."
+            "kkkkkkkkBBBBk..."
+            "kwwkwwkkBBBBk..."
+            "kkkkkkkkkkkkk..."
+            "............kk.."
+            ".............kk."
+            "..............kk"
+            "................"];
+
+    case "checkcalc" % calculator
+        rows = [ ...
+            "................"
+            "..kkkkkkkkkkkk.."
+            "..kssssssssssk.."
+            "..kswwwwwwwwsk.."
+            "..kswwwwwwwwsk.."
+            "..kssssssssssk.."
+            "..kswwswwswwsk.."
+            "..kssssssssssk.."
+            "..kswwswwswwsk.."
+            "..kssssssssssk.."
+            "..kswwswwsoosk.."
+            "..kssssssssssk.."
+            "..kswwswwsoosk.."
+            "..kssssssssssk.."
+            "..kkkkkkkkkkkk.."
+            "................"];
+
+    case "dependencies" % graph: one node feeding two
+        rows = [ ...
+            "................"
+            "...........bbbb."
+            "...........bbbb."
+            "..........sbbbb."
+            ".........s.bbbb."
+            ".......ss...s..."
+            ".gggg.s.....s..."
+            ".ggggs......s..."
+            ".ggggs......s..."
+            ".gggg.s.....s..."
+            ".......ss...s..."
+            ".........s.oooo."
+            "..........soooo."
+            "...........oooo."
+            "...........oooo."
+            "................"];
+
+    case "findreplace" % magnifying glass over one swatch turning into another
+        rows = [ ...
+            "................"
+            "..kkkk.........."
+            ".kBBBBk........."
+            ".kBBBBk........."
+            ".kBBBBk........."
+            ".kBBBBk........."
+            "..kkkkk........."
+            "......kk........"
+            ".......kk......."
+            "........kk......"
+            "................"
+            ".ooo.....k.ggg.."
+            ".ooo.kkkkkkggg.."
+            ".ooo.....k.ggg.."
+            "................"
+            "................"];
+
+    case "keyboard" % keyboard
+        rows = [ ...
+            "................"
+            "................"
+            "................"
+            "................"
+            "kkkkkkkkkkkkkkk."
+            "ksssssssssssssk."
+            "kswswswswswswsk."
+            "ksssssssssssssk."
+            "kswswswswswswsk."
+            "ksssssssssssssk."
+            "ksswwwwwwwwwssk."
+            "ksssssssssssssk."
+            "kkkkkkkkkkkkkkk."
+            "................"
+            "................"
+            "................"];
+
+    case "add" % green plus
+        rows = [ ...
+            "................"
+            "................"
+            "................"
+            "......gggg......"
+            "......gggg......"
+            "......gggg......"
+            "...gggggggggg..."
+            "...gggggggggg..."
+            "...gggggggggg..."
+            "...gggggggggg..."
+            "......gggg......"
+            "......gggg......"
+            "......gggg......"
+            "................"
+            "................"
+            "................"];
+
+    case "remove" % red minus
+        rows = [ ...
+            "................"
+            "................"
+            "................"
+            "................"
+            "................"
+            "................"
+            "...rrrrrrrrrr..."
+            "...rrrrrrrrrr..."
+            "...rrrrrrrrrr..."
+            "...rrrrrrrrrr..."
+            "................"
+            "................"
+            "................"
+            "................"
+            "................"
+            "................"];
+
+    case "edit" % pencil
+        rows = [ ...
+            "................"
+            "............kk.."
+            "...........kRRk."
+            "..........kRRk.."
+            ".........kssk..."
+            "........kook...."
+            ".......kook....."
+            "......kook......"
+            ".....kook......."
+            "....kook........"
+            "...kook........."
+            "..kttk.........."
+            ".ktk............"
+            "kk.............."
+            "................"
+            "................"];
+
+    case "readhardware" % green arrow down out of a circuit
+        rows = [ ...
+            "...s.s.s........"
+            "...s.s.s........"
+            "..kkkkkkk......."
+            "sskwkkkkkss....."
+            "..kkkkkkk...gg.."
+            "sskkkkkkkss.gg.."
+            "..kkkkkkk...gg.."
+            "sskkkkkkkss.gg.."
+            "..kkkkkkk...gg.."
+            "...s.s.s....gg.."
+            "...s.s.s..gggggg"
+            "...........gggg."
+            "............gg.."
+            "................"
+            "................"
+            "................"];
+
+    case "copymove" % one page duplicated, with an arrow leaving it
+        rows = [ ...
+            "................"
+            ".kkkkkkk........"
+            ".kwwwwwk.....g.."
+            ".kwssswk.....gg."
+            ".kwwwwwk.ggggggg"
+            ".kwsskkkkkkk.gg."
+            ".kwwwkwwwwwk.g.."
+            ".kwsskwssswk...."
+            ".kwwwkwwwwwk...."
+            ".kkkkkwssswk...."
+            ".....kwwwwwk...."
+            ".....kwssswk...."
+            ".....kwwwwwk...."
+            ".....kkkkkkk...."
             "................"
             "................"];
 

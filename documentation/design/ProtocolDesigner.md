@@ -39,7 +39,7 @@ ui = epsych.ProtocolDesigner.openFromFile('path/to/file.eprot');
 ## UI Areas
 
 - Main figure and menu system (`buildUI`)
-- Toolbar (`buildToolbar`) — New, Open, Save | Interfaces, Options | Compile, Preview, Check Calcs, Dependencies | Find/Replace, Shortcuts. Buttons are placed from a running cursor, so retitling or reordering one entry does not shift the rest by hand.
+- Toolbar (`buildToolbar`) — a `uitoolbar` of `uipushtool`s with `gui.toolbarIcon` glyphs: New, Open, Save, Save As | Interfaces, Options | Compile, Preview, Check Calcs, Dependencies | Find/Replace | Shortcuts, User Guide. Each tooltip is the menu item's name plus its shortcut, and each tool is tagged `pd_tb_<icon>`. The toolbar sits outside the figure's drawable `Position`, so it costs the parameter table no height. The panel and dialog buttons carry `gui.toolbarIcon` glyphs too.
 - Parameter editing panel (`buildParametersTab`) — table columns: Interface / Module, Name, Type, Expression, Value, Min, Max, Random, Pair, Access, Unit, Visible, Trigger, Update Every Trial, Set Once, Description. The button row under the table holds Remove Selected, Refresh, Edit Selected Value, Read HW Params, and Copy / Move... (`onCopyMoveParameters`)
 - Interfaces dialog (`buildInterfaceTab` / `onOpenInterfaceDialog`) — Add Interface builder plus the interface/module tree and its Remove / Options / Add Module / Remove Module actions
 - Options dialog (`buildOptionsTab` / open options callback)

@@ -171,6 +171,11 @@ classdef Protocol < handle & matlab.mixin.SetGet
         % alone so no interface, module, or parameter is reconstructed.
         changes = diffStructs(A, B, options)                             % Differences between two toStruct payloads - diffStructs.m
         report = compareVersions(fileA, versionA, fileB, versionB, options)  % Compare two versions, in one file or two - compareVersions.m
+
+        % Bring a phase file up to a protocol version: the phase keeps its
+        % values (hw.Parameter.PHASE_OWNED_FIELDS), the protocol wins on
+        % structure. Struct-level, never throws, dry run by default.
+        report = updatePhase(phaseFile, protocolFile, version, options)  % updatePhase.m
     end
 
     methods (Static, Hidden)
@@ -182,7 +187,7 @@ classdef Protocol < handle & matlab.mixin.SetGet
     end
 
     methods (Static, Access = private)
-        [P, H, info] = readRaw_(filename)  % Selectively read the protocol struct + embedded history - readRaw_.m
+        [P, H, info] = readRaw_(filename, options)  % Selectively read the protocol struct + embedded history - readRaw_.m
     end
 
     methods (Access = private)

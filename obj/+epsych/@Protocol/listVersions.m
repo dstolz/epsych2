@@ -13,7 +13,7 @@ function index = listVersions(filename)
     % Returns:
     %   index - (1,:) struct, current entry first then newest-first history,
     %           with fields Version, SavedAt, Origin ('save'|'phase'|
-    %           'restore'), IsCurrent.
+    %           'restore'|'update'), IsCurrent.
     %
     % A file written before version history existed lists only its current
     % version; JSON protocol files keep no history and list the same way.

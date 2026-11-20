@@ -1,10 +1,15 @@
-function [P, H, info] = readRaw_(filename)
+function [P, H, info] = readRaw_(filename, options)
     % [P, H, info] = epsych.Protocol.readRaw_(filename)
+    % [P, H, info] = epsych.Protocol.readRaw_(filename, IncludeHistory=false)
     % Read a protocol MAT file's current struct and embedded version history
     % without reconstructing any objects.
     %
     % Selective per-variable loads keep this cheap: MAT v7 compresses per
     % variable, so asking for 'protocol' never decompresses the archive.
+    %
+    % IncludeHistory=false skips the archive entirely (H comes back empty and
+    % info.HasHistory false), for a caller that needs only the current
+    % content -- an archive is every superseded version, decompressed.
     %
     % Never throws: a missing, unreadable, or foreign file returns P = [].
     %
@@ -25,6 +30,7 @@ function [P, H, info] = readRaw_(filename)
 
     arguments
         filename (1,:) char
+        options.IncludeHistory (1,1) logical = true
     end
 
     P = [];
@@ -60,7 +66,7 @@ function [P, H, info] = readRaw_(filename)
         P = [];
     end
 
-    if ismember('history', info.Variables)
+    if options.IncludeHistory && ismember('history', info.Variables)
         try
             S = builtin('load', filename, '-mat', 'history');
             H = localNormalizeHistory(S.history);

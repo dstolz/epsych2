@@ -547,7 +547,26 @@ Rules that matter:
   `SelectParameters` and `UseSelection` default false, so a scripted load never blocks
   on a modal dialog or inherits an operator's pending choice. Standing proof
   `tmp/smoke_test_phaseselector_select_parameters.m`, -batch only (it drives the dialog
-  from a timer)
+  from a timer).
+  **A phase can be brought up to a protocol version**: a phase is a whole
+  protocol snapshot, so loading one saved under an older version reverts
+  whatever the protocol changed since. `epsych.Protocol.updatePhase(phase,
+  protocolFile, version)` rewrites it — the phase keeps
+  `hw.Parameter.PHASE_OWNED_FIELDS` (Value/Values/Min/Max/isRandom), the
+  protocol wins on every other field, interfaces and options; added/removed
+  parameters follow the protocol; a parameter whose `PHASE_VALUE_DEFINING_FIELDS`
+  (Type/Unit/isArray) changed takes the protocol's values, reported in
+  `Dropped`. Struct-level, never throws, dry run by default; overwrites in place
+  with the old content archived as `<ver>+pre-update.<stamp>` (a same-version
+  stale phase must not put one version string in the file twice), so
+  `restoreVersion` undoes it. The target is read from the FILE —
+  `Runtime.updatePhase` uses `Runtime.ProtocolFile` (set by `ExptDispatch`
+  beside `Runtime.Protocol`) at `Protocol.meta.protocolVersion` (archived for a
+  held membership) — never from the live object, which carries session edits.
+  `gui.components.PhaseSelector`'s right-click Update Selected / Update All
+  items call it after a confirmation; a phase whose parameters mostly do not
+  exist in the protocol (`LooksForeign`) or that is newer than the target is
+  refused. Standing proof `tmp/smoke_test_phase_update.m`
 - **PRGMSTATE** (top-level class in obj/PRGMSTATE.m): Session state enumeration
 
 #### obj/+hw/ – Hardware Abstraction Layer

@@ -23,10 +23,20 @@ classdef PhaseSelector < handle
     %
     % Everything else is on a right-click menu shared by every part of the
     % component: Load, Select Parameters to Load..., Clear Parameter Selection,
-    % Always Choose Before Loading, Print Phase Changes, Save Current
-    % Parameters as Phase..., Change Phase Directory..., and Rescan Phase
-    % Directory. addSavePhaseButton and addChangeDirectoryButton remain for a
-    % host that lays the component out itself and wants those as buttons.
+    % Always Choose Before Loading, Print Phase Changes, Update Selected Phase
+    % to Session Protocol..., Update All Phases to Session Protocol..., Save
+    % Current Parameters as Phase..., Change Phase Directory..., and Rescan
+    % Phase Directory. addSavePhaseButton and addChangeDirectoryButton remain
+    % for a host that lays the component out itself and wants those as buttons.
+    %
+    % A phase saved under an older protocol version reverts, when loaded,
+    % whatever the protocol changed since (a phase is a whole protocol
+    % snapshot). The two Update items rewrite phase files to the version this
+    % session runs -- the phase keeps its values, the protocol wins on
+    % structure (epsych.Protocol.updatePhase) -- after showing what would
+    % change. The file is overwritten in place and its previous content is
+    % archived inside it. The selected-phase item says, as the menu opens,
+    % whether there is anything to update.
     %
     % A missing, unset, or empty phase directory is a normal state, not an error:
     % the component builds with an empty phase list and a description explaining
@@ -83,6 +93,8 @@ classdef PhaseSelector < handle
     %   showPhaseInfo           - Print a table of the parameter changes the selected phase would apply.
     %   set.PhasePath           - Set method for PhasePath property, loads phase files from new path.
     %   writePhaseParameters    - Save the current session as a protocol (.eprot) phase file.
+    %   updateSelectedPhase     - Bring the selected phase file up to the session's protocol version.
+    %   updateAllPhases         - Bring every phase file in PhasePath up to the session's protocol version.
     %   changePhaseDirectory    - Prompt the user for a new phase directory and rescan it.
     %   withLastLoaded          - Append the most-recently-loaded phase file name and load time to info text.
     %
@@ -149,6 +161,8 @@ classdef PhaseSelector < handle
         LOADED_TEXT = 'Load'
         SELECT_TEXT = 'Load...' % the ellipsis says a dialog follows
         PARAMS_TEXT = 'Parameters...'
+        UPDATE_TEXT = 'Update Selected Phase to Session Protocol...'
+        UPDATE_ALL_TEXT = 'Update All Phases to Session Protocol...'
     end
 
 
@@ -162,6 +176,8 @@ classdef PhaseSelector < handle
         h_ChooseMenu_ = []
         h_ClearMenu_ = []
         h_InfoMenu_ = []
+        h_UpdateMenu_ = []    % "Update Selected Phase to Session Protocol..."
+        h_UpdateAllMenu_ = [] % "Update All Phases to Session Protocol..."
 
         % Run mode, FOLLOWED from ModeChange rather than read: a behavior GUI
         % is built before RunExpt broadcasts the run mode, and asking the
@@ -958,6 +974,176 @@ classdef PhaseSelector < handle
             end
         end
 
+
+        function report = updateSelectedPhase(obj, options)
+            % report = updateSelectedPhase(obj)
+            % report = updateSelectedPhase(obj, Confirm=false)
+            % Bring the selected phase file up to the protocol version this
+            % session runs (epsych.Runtime.updatePhase): the phase keeps its
+            % values, the protocol wins on structure. The file is overwritten
+            % in place; its previous content stays in its version archive,
+            % so Protocol Designer's Version History can put it back.
+            %
+            % The operator is shown what will change and asked first. A
+            % phase that looks like it belongs to another protocol (fewer
+            % than half its parameters exist in this one) is asked about
+            % with a warning. Nothing is loaded into the session.
+            %
+            % Options:
+            %   Confirm - (default true) ask before writing. false writes
+            %             without asking, foreign-looking phases excepted,
+            %             which are refused -- a script cannot see the warning.
+            %
+            % Returns:
+            %   report  - epsych.Protocol.updatePhase's report ([] when there
+            %             was nothing to ask about)
+            arguments
+                obj
+                options.Confirm (1,1) logical = true
+            end
+            report = [];
+            [can, why] = obj.canUpdatePhases_();
+            [filepath, ~, phaseName] = obj.selectedPhaseFile();
+            if ~can
+                obj.alert_(why, 'Update Phase', 'info', options.Confirm);
+                return
+            end
+            if strlength(filepath) == 0
+                obj.alert_('Select a phase first.', 'Update Phase', 'info', options.Confirm);
+                return
+            end
+
+            report = obj.RUNTIME.updatePhase(filepath);
+            if ~report.ok
+                obj.alert_(report.message, 'Update Phase', 'warning', options.Confirm);
+                return
+            end
+            if ~report.HasChanges
+                obj.alert_(report.message, 'Update Phase', 'info', options.Confirm);
+                return
+            end
+
+            allowForeign = false;
+            if options.Confirm
+                msg = obj.describeUpdate_(report);
+                accept = 'Update';
+                icon = 'question';
+                if report.LooksForeign
+                    msg = sprintf(['Only %.0f%% of this phase''s parameters exist in the session''s ' ...
+                        'protocol, so it may belong to another protocol.\n\n%s'], ...
+                        100 * report.MatchedFraction, msg);
+                    accept = 'Update Anyway';
+                    icon = 'warning';
+                    allowForeign = true;
+                end
+                if ~obj.confirm_(msg, sprintf('Update Phase "%s"', phaseName), accept, icon)
+                    vprintf(3, 'Phase update canceled.')
+                    return
+                end
+            end
+
+            report = obj.RUNTIME.updatePhase(filepath, DryRun = false, AllowForeign = allowForeign);
+            obj.afterUpdate_(report);
+            if ~report.ok
+                obj.alert_(report.message, 'Update Phase', 'warning', options.Confirm);
+            end
+        end
+
+
+        function reports = updateAllPhases(obj, options)
+            % reports = updateAllPhases(obj)
+            % reports = updateAllPhases(obj, Confirm=false)
+            % Bring every phase file in PhasePath up to the protocol version
+            % this session runs (see updateSelectedPhase). Every .eprot is
+            % dry-run first and the operator is shown which would change;
+            % phases already up to date are left untouched, and so are
+            % phases that look like they belong to another protocol, which
+            % are listed for updating one at a time instead. Legacy .json
+            % phases are not updated.
+            %
+            % Options:
+            %   Confirm - (default true) ask before writing
+            %
+            % Returns:
+            %   reports - struct array of epsych.Protocol.updatePhase
+            %             reports, one per file written or attempted
+            arguments
+                obj
+                options.Confirm (1,1) logical = true
+            end
+            reports = [];
+            [can, why] = obj.canUpdatePhases_();
+            if ~can
+                obj.alert_(why, 'Update Phases', 'info', options.Confirm);
+                return
+            end
+            files = obj.FullFilenames(endsWith(obj.FullFilenames, '.eprot', 'IgnoreCase', true));
+            if isempty(files)
+                obj.alert_('There are no .eprot phase files in the phase directory.', ...
+                    'Update Phases', 'info', options.Confirm);
+                return
+            end
+
+            plan = cell(1, numel(files));
+            for i = 1:numel(files)
+                plan{i} = obj.RUNTIME.updatePhase(files(i));
+            end
+            plan = [plan{:}];
+            pending = plan([plan.ok] & [plan.HasChanges] & ~[plan.LooksForeign]);
+            foreign = plan([plan.ok] & [plan.HasChanges] & [plan.LooksForeign]);
+            refused = plan(~[plan.ok]);
+            target = '';
+            if any([plan.ok])
+                target = obj.versionText_(plan(find([plan.ok], 1)).TargetVersion);
+            end
+
+            skippedText = '';
+            if ~isempty(foreign)
+                skippedText = sprintf(['%s\n\nNot updated -- most of their parameters are not in ' ...
+                    'this protocol (select one and update it alone if it is meant to be):\n%s'], ...
+                    skippedText, obj.bullets_(arrayfun(@(r) obj.fileName_(r.PhaseFile), foreign, ...
+                    'UniformOutput', false)));
+            end
+            if ~isempty(refused)
+                skippedText = sprintf('%s\n\nCannot be updated:\n%s', skippedText, ...
+                    obj.bullets_(arrayfun(@(r) r.message, refused, 'UniformOutput', false)));
+            end
+
+            if isempty(pending)
+                msg = sprintf('No phase needs updating to the session''s protocol%s.%s', ...
+                    obj.parenthesized_(target), skippedText);
+                obj.alert_(msg, 'Update Phases', 'info', options.Confirm);
+                return
+            end
+
+            if options.Confirm
+                lines = arrayfun(@(r) obj.planLine_(r), pending, 'UniformOutput', false);
+                msg = sprintf(['Update %d of %d phase file(s) to the session''s protocol%s? Each keeps ' ...
+                    'its values and takes the protocol''s structure; its previous content stays ' ...
+                    'in its version history.\n\n%s%s'], numel(pending), numel(files), ...
+                    obj.parenthesized_(target), obj.bullets_(lines), skippedText);
+                if ~obj.confirm_(msg, 'Update Phases', 'Update', 'question')
+                    vprintf(3, 'Phase update canceled.')
+                    return
+                end
+            end
+
+            written = cell(1, numel(pending));
+            for i = 1:numel(pending)
+                written{i} = obj.RUNTIME.updatePhase(pending(i).PhaseFile, DryRun = false);
+                obj.afterUpdate_(written{i}, Rescan = false);
+            end
+            reports = [written{:}];
+            obj.rescanPhaseDirectory();
+
+            failed = reports(~[reports.Written]);
+            if ~isempty(failed)
+                obj.alert_(sprintf('%d phase file(s) could not be updated:\n%s', numel(failed), ...
+                    obj.bullets_(arrayfun(@(r) r.message, failed, 'UniformOutput', false))), ...
+                    'Update Phases', 'warning', options.Confirm);
+            end
+        end
+
     end
 
 
@@ -1150,6 +1336,10 @@ classdef PhaseSelector < handle
                 'MenuSelectedFcn', @(~,~) obj.toggleSelectParameters_());
             obj.h_InfoMenu_ = uimenu(cm, 'Text', 'Print Phase Changes to Command Window', ...
                 'MenuSelectedFcn', @(~,~) obj.showPhaseInfo());
+            obj.h_UpdateMenu_ = uimenu(cm, 'Text', obj.UPDATE_TEXT, 'Separator', 'on', ...
+                'MenuSelectedFcn', @(~,~) obj.updateSelectedPhase());
+            obj.h_UpdateAllMenu_ = uimenu(cm, 'Text', obj.UPDATE_ALL_TEXT, ...
+                'MenuSelectedFcn', @(~,~) obj.updateAllPhases());
             uimenu(cm, 'Text', 'Save Current Parameters as Phase...', 'Separator', 'on', ...
                 'MenuSelectedFcn', @(~,~) obj.writePhaseParameters([]));
             uimenu(cm, 'Text', 'Change Phase Directory...', ...
@@ -1170,6 +1360,212 @@ classdef PhaseSelector < handle
             obj.h_InfoMenu_.Enable = phaseOn;
             obj.h_ClearMenu_.Enable = matlab.lang.OnOffSwitchState(strlength(obj.Selection_.File) > 0);
             obj.h_SelectMenu_.Checked = matlab.lang.OnOffSwitchState(obj.SelectParametersOnLoad);
+            obj.refreshUpdateMenu_();
+        end
+
+
+        function refreshUpdateMenu_(obj)
+            % refreshUpdateMenu_(obj)
+            % The update items, worked out as the menu opens. The selected
+            % phase is dry-run so the item can say what it would do -- or
+            % that there is nothing to do -- before anyone clicks it; that
+            % reads two small MAT variables and no archive. Update All is not
+            % dry-run here (that would read every phase on each right-click),
+            % so it is offered whenever there is something it could look at,
+            % and its confirmation says what it found.
+            if isempty(obj.h_UpdateMenu_) || ~isvalid(obj.h_UpdateMenu_), return, end
+            [can, ~] = obj.canUpdatePhases_();
+            filepath = obj.selectedPhaseFile();
+            text = obj.UPDATE_TEXT;
+            enable = false;
+            if can && strlength(filepath) > 0
+                r = obj.RUNTIME.updatePhase(filepath);
+                if r.ok && r.HasChanges
+                    enable = true;
+                    text = sprintf('Update Selected Phase to Session Protocol (%s %s %s)...', ...
+                        obj.versionText_(r.PhaseVersion), char(8594), r.TargetVersion);
+                elseif r.ok
+                    text = sprintf('Selected Phase Matches Session Protocol (%s)', ...
+                        obj.versionText_(r.TargetVersion));
+                end
+            end
+            obj.h_UpdateMenu_.Text = text;
+            obj.h_UpdateMenu_.Enable = matlab.lang.OnOffSwitchState(enable);
+            obj.h_UpdateAllMenu_.Enable = matlab.lang.OnOffSwitchState(can && ...
+                any(endsWith(obj.FullFilenames, '.eprot', 'IgnoreCase', true)));
+        end
+
+
+        function [can, why] = canUpdatePhases_(obj)
+            % Whether this component's runtime names a protocol version to
+            % update phases to. A review never may: its runtime is rebuilt
+            % from a saved session and owns no protocol file.
+            can = false;
+            why = 'Phases can be updated only while a session is open in RunExpt.';
+            R = obj.RUNTIME;
+            if ~isa(R, 'epsych.Runtime') || ~isvalid(R)
+                return
+            end
+            if R.ReviewMode
+                why = 'Phases cannot be updated from a session review.';
+                return
+            end
+            if isempty(R.Protocol) || strlength(R.ProtocolFile) == 0
+                why = ['This session''s protocol was not loaded from a file, so there is ' ...
+                    'no protocol version to update phases to.'];
+                return
+            end
+            can = true;
+            why = '';
+        end
+
+
+        function afterUpdate_(obj, report, options)
+            % After a write: record it with the session, drop a Parameters...
+            % selection made against the old content (Load would otherwise
+            % refuse it as stale, with a message about a change the operator
+            % just made), print what changed, and refresh the version labels.
+            arguments
+                obj
+                report
+                options.Rescan (1,1) logical = true
+            end
+            if ~report.Written, return, end
+            name = obj.fileName_(report.PhaseFile);
+            epsych.SessionNotes.log(obj.RUNTIME, 'Updated phase "%s" to protocol %s', ...
+                name, report.TargetVersion);
+            if strlength(obj.Selection_.File) > 0 && strcmpi(obj.Selection_.File, report.PhaseFile)
+                obj.Selection_ = obj.emptySelection_();
+                obj.refreshSelectButton_();
+            end
+            obj.printChanges_(report);
+            if options.Rescan
+                obj.rescanPhaseDirectory();
+            end
+        end
+
+
+        function printChanges_(obj, report)
+            % Every difference the update made, one log line each, so the
+            % record of what a rewrite did outlives the dialog that asked.
+            name = obj.fileName_(report.PhaseFile);
+            for c = reshape(report.Changes, 1, [])
+                vprintf(1, '  %s: %s %s %s (%s -> %s)', name, c.Path, c.Item, c.Change, c.Old, c.New);
+            end
+        end
+
+
+        function msg = describeUpdate_(obj, r)
+            % The confirmation text for one phase: what is kept, what the
+            % protocol replaces, and where the old content goes.
+            msg = sprintf('%s: %s %s %s', obj.fileName_(r.PhaseFile), ...
+                obj.versionText_(r.PhaseVersion), char(8594), obj.versionText_(r.TargetVersion));
+            msg = sprintf('%s\n\nKeeps the phase''s values for %d parameter(s).', msg, numel(r.Kept));
+            if ~isempty(r.Restructured)
+                msg = sprintf('%s\nTakes the protocol''s structure for %d: %s', msg, ...
+                    numel(r.Restructured), obj.listText_(r.Restructured));
+            end
+            if ~isempty(r.Added)
+                msg = sprintf('%s\nAdds %d new to the protocol: %s', msg, numel(r.Added), ...
+                    obj.listText_(r.Added));
+            end
+            if ~isempty(r.Removed)
+                msg = sprintf('%s\nRemoves %d no longer in the protocol: %s', msg, ...
+                    numel(r.Removed), obj.listText_(r.Removed));
+            end
+            if ~isempty(r.Dropped)
+                msg = sprintf(['%s\n\nTakes the protocol''s values where the meaning of the value ' ...
+                    'changed:\n%s'], msg, obj.bullets_(arrayfun(@(d) sprintf('%s (%s)', ...
+                    d.Name, d.Reason), r.Dropped, 'UniformOutput', false)));
+            end
+            msg = sprintf(['%s\n\nThe file is overwritten. Its previous content stays in its ' ...
+                'version history (Protocol Designer > Version History).'], msg);
+        end
+
+
+        function line = planLine_(obj, r)
+            % One phase in Update All's confirmation.
+            line = sprintf('%s: %s %s %s', obj.fileName_(r.PhaseFile), ...
+                obj.versionText_(r.PhaseVersion), char(8594), obj.versionText_(r.TargetVersion));
+            parts = {};
+            if ~isempty(r.Restructured), parts{end+1} = sprintf('%d restructured', numel(r.Restructured)); end
+            if ~isempty(r.Added),        parts{end+1} = sprintf('%d added', numel(r.Added)); end
+            if ~isempty(r.Removed),      parts{end+1} = sprintf('%d removed', numel(r.Removed)); end
+            if ~isempty(r.Dropped)
+                parts{end+1} = sprintf('%d value(s) replaced: %s', numel(r.Dropped), ...
+                    strjoin([r.Dropped.Name], ', '));
+            end
+            if ~isempty(parts)
+                line = sprintf('%s (%s)', line, strjoin(parts, '; '));
+            end
+        end
+
+
+        function ok = confirm_(obj, msg, title, accept, icon)
+            % Ask in the component's window. With no window there is no one
+            % to ask, so the answer is no -- a write is never assumed.
+            ok = false;
+            fig = [];
+            if ~isempty(obj.h_PhaseSelect) && isvalid(obj.h_PhaseSelect)
+                fig = ancestor(obj.h_PhaseSelect, 'figure');
+            end
+            if isempty(fig) || ~isvalid(fig)
+                vprintf(1, 'gui.components.PhaseSelector: no window to confirm "%s" in; nothing written', title)
+                return
+            end
+            answer = uiconfirm(fig, msg, title, 'Options', {accept, 'Cancel'}, ...
+                'DefaultOption', 2, 'CancelOption', 2, 'Icon', icon);
+            ok = strcmp(answer, accept);
+        end
+
+
+        function alert_(obj, msg, title, icon, interactive)
+            % Tell the operator in the window when there is one and the call
+            % came from them; a script gets the log line alone.
+            vprintf(1, '%s: %s', title, msg)
+            if ~interactive || isempty(obj.h_PhaseSelect) || ~isvalid(obj.h_PhaseSelect)
+                return
+            end
+            fig = ancestor(obj.h_PhaseSelect, 'figure');
+            if ~isempty(fig) && isvalid(fig) && fig.Visible
+                uialert(fig, msg, title, Icon = icon);
+            end
+        end
+
+
+        function s = versionText_(~, v)
+            s = char(string(v));
+            if isempty(s), s = 'unversioned'; end
+        end
+
+
+        function s = parenthesized_(~, v)
+            s = '';
+            if ~isempty(v), s = sprintf(' (%s)', v); end
+        end
+
+
+        function s = fileName_(~, f)
+            [~, n, e] = fileparts(char(f));
+            s = [n e];
+        end
+
+
+        function s = bullets_(~, items)
+            s = strjoin(cellfun(@(x) sprintf('%s %s', char(8226), char(string(x))), ...
+                cellstr(string(items)), 'UniformOutput', false), newline);
+        end
+
+
+        function s = listText_(~, names)
+            % Names joined for a dialog, cut short past ten.
+            maxShown = 10;
+            names = reshape(string(names), 1, []);
+            if numel(names) > maxShown
+                s = sprintf('%s, and %d more', strjoin(names(1:maxShown), ', '), numel(names) - maxShown);
+            else
+                s = char(strjoin(names, ', '));
+            end
         end
 
 

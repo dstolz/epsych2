@@ -54,7 +54,9 @@ Rules that fall out of the design:
 
 - **Within one file, a version string identifies content.** A same-version
   write — `save(..., IncrementVersion=false)`, or a phase save — replaces
-  content without an archive entry, exactly as before.
+  content without an archive entry, exactly as before. (`updatePhase` is the
+  one writer that archives a same-version predecessor, under a label of its
+  own; see "Updating a phase to a protocol version".)
 - **History belongs to the file, not the object.** The in-memory Protocol is
   history-agnostic; `Save As` to a new path starts a fresh archive, and the
   original file keeps its own.
@@ -130,6 +132,64 @@ one. In the Subjects window, the revert dialog's **Show Changes...** compares
 what a subject runs now with the entry it would go back to. Standing proof:
 `tmp/smoke_test_protocol_versioning.m`.
 
+### Updating a phase to a protocol version
+
+A phase file is a whole protocol snapshot stamped with the version it was saved
+from, and loading one applies every field of every parameter it names
+(`Runtime.readParameters` → `hw.Parameter.fromStruct`). A phase saved under `v3`
+loaded into a session running `v7` therefore puts back whatever `v4`–`v7`
+changed about the parameters both name. (`readParameters` keeping the live
+`Expression` when the file's is empty was a one-field patch for exactly this.)
+
+`updatePhase(phaseFile, protocolFile, version)` rewrites the phase to be that
+protocol version carrying the phase's own settings:
+
+| From the phase | From the protocol |
+|---|---|
+| `hw.Parameter.PHASE_OWNED_FIELDS`: `Value`, `Values`, `Min`, `Max`, `isRandom` | every other parameter field — `Type`, `Unit`, `Description`, `Visible`, `Expression`, `UpdateEveryTrial`, `SetOnce`, ... |
+| `Info` (the phase's description) | interfaces, modules, `Options`, `COMPILED`, `protocolVersion` |
+
+- A parameter only the protocol has is **added** with the protocol's values;
+  one only the phase has is **removed**.
+- Where the protocol changed what a value **means**
+  (`hw.Parameter.PHASE_VALUE_DEFINING_FIELDS`: `Type`, `Unit`, `isArray`), the
+  phase's values describe a different quantity and are **dropped** for the
+  protocol's, each reported with its reason (`Unit "" -> "dB"`).
+- Parameters match by interface type and `Name`, preferring the same module,
+  with `epsych.Runtime.INTERCHANGEABLE_PARENT_TYPES` as the fallback — the rule
+  `readParameters` loads by, so a phase saved under `hw.TDT_RPcox` updates
+  against a `hw.TDT_Synapse` protocol.
+- `version` may be any version the protocol file holds, current or archived
+  (`''` = current), which is how a held membership's phases go to the version
+  it runs. A phase stamped NEWER than the target is refused (a downgrade).
+- `lastModified` is stamped now, which makes `needsCompile` rebuild the
+  target's `COMPILED` table from the merged values on use.
+
+It reads the stored structs only — like `compareVersions` it reconstructs
+nothing and **never throws** — and defaults to a dry run. The report carries
+`Kept`, `Added`, `Removed`, `Dropped` (`Name`/`Reason`), `Restructured`,
+`Changes` (`diffStructs` from the old phase to the new one, minus the
+`Compiled` section), `HasChanges`, `MatchedFraction`, and a `Summary`. Fewer
+than half the phase's parameters existing in the protocol sets `LooksForeign`,
+and a write is then refused unless `AllowForeign=true`. Archives are read only
+when needed (`readRaw_(..., IncludeHistory=false)` otherwise), so a dry run on
+every right-click costs two small MAT reads.
+
+`DryRun=false` overwrites the phase in place through `writeProtocolFile`
+(`Origin='update'`), passing the history explicitly so the replaced content is
+archived as `<old version>+pre-update.<yyMMddTHHmmss>`. It cannot simply be
+archived under its version: a phase stamped with the TARGET version can still
+hold stale structure (re-saved from a session whose configuration predated the
+change), and one file must not carry one version string twice.
+`restoreVersion(phaseFile, report.ArchivedAs, Mode='exact')` undoes an update.
+
+The session-facing door is `epsych.Runtime.updatePhase(phaseFile)`, which
+targets `Runtime.ProtocolFile` at `Runtime.Protocol.meta.protocolVersion` — the
+file, never the live object, which carries session edits, parameter defaults,
+and possibly an old phase's structure. `gui.components.PhaseSelector` puts it on
+its right-click menu (see [../gui/PhaseSelector.md](../gui/PhaseSelector.md)).
+Standing proof: `tmp/smoke_test_phase_update.m`.
+
 ## Recent Behavior To Know
 
 ### Compiled parameter-handle reconstruction
@@ -168,6 +228,7 @@ Compile and serialization helpers normalize parameter values and infer serialize
 - Versions (static): `versionOnDisk(file)`, `versionNumber('vN.YYMMDD')`
 - Version history (static): `listVersions(file)`, `hasVersion(file, v)`, `loadVersion(file, v)`, `restoreVersion(file, v, Mode=...)`; low-level writer `writeProtocolFile` (Hidden)
 - Version comparison (static): `compareVersions(fileA, vA, fileB, vB)`, `diffStructs(A, B)`; window `gui.compareProtocolVersions`
+- Phase update (static): `updatePhase(phaseFile, protocolFile, v, DryRun=...)` — phase keeps its values, protocol wins on structure; session door `epsych.Runtime.updatePhase`
 
 ## Usage Example
 

@@ -577,7 +577,12 @@ Rules that matter:
   neither `UpdateEveryTrial` nor `SetOnce`), so a stimulus or coefficient
   buffer is not uploaded twice. Do not put once-per-run work in `set.mode`:
   `mode` is `AbortSet` against the LIVE getter, and a freshly loaded circuit
-  already reports Record, so that write is skipped
+  already reports Record, so that write is skipped.
+  Two more concrete hooks, `parameterCapacity(P)` (`NaN` = unknown; RPcox from
+  `PARTAG`, Synapse from its size cache) and `isSimulated()` (true only for
+  `hw.Software`/`hw.Replay`), exist so `hw.benchmarkIO` — the backend-agnostic
+  I/O timer, standing proof `tmp/smoke_test_hw_benchmark_io.m` — never branches
+  on class (documentation/hw/hw_benchmarkIO.md)
 - **hw.Module**: Parameter container
 - **hw.Parameter**: Single parameter with validation and callbacks
 - **Concrete Backends**:

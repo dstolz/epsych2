@@ -299,6 +299,36 @@ I/O degrades rather than throws while disconnected — `hw.NE1000`'s `transact_`
 returns a not-ok result without touching the port, and reads serve the last
 value the device reported.
 
+### `parameterCapacity` / `isSimulated`
+
+```matlab
+n  = I.parameterCapacity(P)   % elements the device storage behind P holds; NaN = unknown
+tf = I.isSimulated()          % true when no device sits behind this interface
+```
+
+Two concrete hooks with safe defaults, added so that
+[`hw.benchmarkIO`](hw_benchmarkIO.md) can time any backend without asking which
+one it is. A backend that overrides neither behaves exactly as before.
+
+- **`parameterCapacity(P)`** returns how many elements the storage behind `P`
+  holds — an RPvds tag's size, a Synapse array parameter's count. The default
+  is `NaN`. An override answers from what the backend already holds, must not
+  add a device round trip for an answer that is cached, and must never throw.
+  - `hw.TDT_RPcox` reads the tag size from the `PARTAG` map `TDTRP.setup`
+    builds at every circuit load. That is a MATLAB property read, with no COM
+    call. It returns `NaN` while no circuit is loaded.
+  - `hw.TDT_Synapse` answers from its per-connection size cache
+    (`ParameterSizes_`), which array reads and stimulus writes already
+    consult. An uncached size is asked of Synapse once, through the same
+    `parameterSize_` the first read of that parameter would use. It returns
+    `NaN` when disconnected with nothing cached, or when Synapse gives no size.
+- **`isSimulated()`** is true for a backend that answers from memory, with no
+  device behind it: `hw.Software` and `hw.Replay`. The default is `false`.
+  `hw.benchmarkIO` refuses a disconnected interface unless this is true.
+  Several backends report a write as successful, and serve the cached `Value`,
+  while disconnected (`hw.TDT_RPcox` does both), so timing them would report
+  numbers for I/O that never happened.
+
 ### `displayLabel`
 
 ```matlab

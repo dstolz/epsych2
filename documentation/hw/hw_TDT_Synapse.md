@@ -163,6 +163,12 @@ verbosity 3:
   a field name, so a count the client has to look up itself throws
   `Invalid field name` for every legacy processor. A scalar tag a protocol
   marks `isArray` is read as the scalar the device says it is.
+- `parameterCapacity(P)` (an `hw.Interface` hook; see
+  [hw_Interface.md](hw_Interface.md#parametercapacity--issimulated)) answers
+  from that same once-per-connection size, so asking it costs at most the
+  `getParameterSize` the first read would have made. It returns `NaN` when
+  disconnected with nothing cached, or when Synapse gives no size.
+  [`hw.benchmarkIO`](hw_benchmarkIO.md) sizes its buffer writes from it.
 - A read Synapse refuses (it answers `''` outside a runtime mode) is
   returned as NaN, and so is a read that throws, logged; one tag Synapse
   will not answer for must not end the session, since every readable

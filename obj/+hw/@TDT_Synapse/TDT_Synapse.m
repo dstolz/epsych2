@@ -424,6 +424,39 @@ classdef TDT_Synapse < hw.Interface
         end
 
 
+        function n = parameterCapacity(obj, P)
+            % n = parameterCapacity(obj, P)
+            % The element count from ParameterSizes_, the per-connection cache
+            % array reads and stimulus writes already consult. A cached size
+            % costs nothing; an uncached one is asked of Synapse once, through
+            % parameterSize_, exactly as the first read of that parameter
+            % would ask it. NaN when disconnected with nothing cached, or when
+            % Synapse would not give a size.
+            %
+            % See also: hw.Interface.parameterCapacity
+            n = NaN;
+            if ~isa(obj.ParameterSizes_, 'containers.Map')
+                return
+            end
+
+            gizmo = obj.gizmoName_(P.Module);
+            tag = obj.getHardwareParameterName(P);
+            key = [gizmo '.' tag];
+            if obj.ParameterSizes_.isKey(key)
+                sz = obj.ParameterSizes_(key);
+            elseif obj.IsConnected && ~isempty(obj.HW)
+                sz = obj.parameterSize_(gizmo, tag);
+            else
+                return
+            end
+
+            % parameterSize_ records a size Synapse would not give as Inf.
+            if isfinite(sz) && sz >= 1
+                n = sz;
+            end
+        end
+
+
         % trigger a hardware event
         function t = trigger(obj,name)
             % t = trigger(obj,name);

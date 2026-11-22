@@ -26,6 +26,8 @@ classdef CountingProbeInterface < hw.Interface
     %                    and store nothing
     %   ProbeTTL       - seconds ioReady may serve a cached probe. 0 = probe
     %                    every time
+    %   ModeTTL        - seconds a mode read may be answered from the last
+    %                    one. 0 = query every time
     %   YieldInTrigger - true holds the trigger pulse with pause(0.001), which
     %                    drains the event queue; false busy-waits. Default false
     %   Connected      - what the probe reports
@@ -63,6 +65,7 @@ classdef CountingProbeInterface < hw.Interface
         CoerceSingle   (1,1) logical = false
         RefuseWrites   (1,:) cell = {}
         ProbeTTL       (1,1) double = 0
+        ModeTTL        (1,1) double = 0
         YieldInTrigger (1,1) logical = false
         Counts         (1,1) struct = CountingProbeInterface.zeroCounts()
         TriggerLog     = struct('Name', {}, 'Time', {})
@@ -75,6 +78,7 @@ classdef CountingProbeInterface < hw.Interface
     properties (Access = private)
         epoch_
         probeTic_ = []
+        modeTic_ = []
         probeCache_ (1,1) logical = false
         modeState_ = hw.DeviceState.Standby
     end
@@ -92,11 +96,13 @@ classdef CountingProbeInterface < hw.Interface
                 options.CallDelay (1,1) double = 0
                 options.CoerceSingle (1,1) logical = false
                 options.ProbeTTL (1,1) double = 0
+                options.ModeTTL (1,1) double = 0
                 options.YieldInTrigger (1,1) logical = false
             end
             obj.CallDelay = options.CallDelay;
             obj.CoerceSingle = options.CoerceSingle;
             obj.ProbeTTL = options.ProbeTTL;
+            obj.ModeTTL = options.ModeTTL;
             obj.YieldInTrigger = options.YieldInTrigger;
             obj.Module = hw.Module(obj, 'Probe', 'Dev', 1);
             obj.epoch_ = tic;
@@ -127,16 +133,23 @@ classdef CountingProbeInterface < hw.Interface
         end
 
         function m = get.mode(obj)
-            % One status query plus the probe, as hw.TDT_RPcox.queryModeState_.
+            % One status query plus the probe, as hw.TDT_RPcox.queryModeState_,
+            % answered from the last one for ModeTTL seconds.
+            if obj.ModeTTL > 0 && ~isempty(obj.modeTic_) && toc(obj.modeTic_) < obj.ModeTTL
+                m = obj.modeState_;
+                return
+            end
             if obj.ioReady()
                 obj.Counts.Status = obj.Counts.Status + 1;
                 obj.deviceCall_();
+                obj.modeTic_ = tic;
             end
             m = obj.modeState_;
         end
 
         function set.mode(obj, m)
             obj.modeState_ = hw.DeviceState(m);
+            obj.modeTic_ = [];
         end
 
         function t = trigger(obj, name)

@@ -79,6 +79,13 @@ classdef TDT_Synapse < hw.Interface
     properties (Access = private)
         ModeState_ (1,1) hw.DeviceState = hw.DeviceState.Idle
 
+        % When ModeState_ was last asked of Synapse; empty = ask next time.
+        modeTic_ = []
+
+        % Whether the client exposes sendGet, resolved once per connection
+        % ([] = not yet); see readScalar_.
+        directRead_ = []
+
         % Element counts by 'gizmo.tag', asked of Synapse once per
         % connection. Two reasons: a stimulus write is bounded by the tag
         % that receives it, and the SynapseAPI client's own size cache
@@ -113,6 +120,10 @@ classdef TDT_Synapse < hw.Interface
         % Seconds a trigger tag is held high between the write of 1 and the
         % write of 0 (hw.Interface.holdPulse).
         PULSE_HOLD = 0.001
+
+        % Seconds a mode query may be answered from the last one
+        % (queryModeState_).
+        MODE_INTERVAL = 0.1
     end
 
 
@@ -389,6 +400,8 @@ classdef TDT_Synapse < hw.Interface
 
         function close_interface(obj)
             obj.ParameterSizes_ = containers.Map('KeyType', 'char', 'ValueType', 'double');
+            obj.modeTic_ = [];
+            obj.directRead_ = [];
 
             if isempty(obj.HW)
                 obj.IsConnected = false;
@@ -685,7 +698,7 @@ classdef TDT_Synapse < hw.Interface
             % through its size cache, which cannot hold a legacy processor's
             % name (see ParameterSizes_).
             if ~(p.isArray || ismember(p.Type, obj.ARRAY_TYPES))
-                v = obj.HW.getParameterValue(gizmo, tag);
+                v = obj.readScalar_(gizmo, tag);
                 return
             end
 
@@ -694,20 +707,52 @@ classdef TDT_Synapse < hw.Interface
                 vprintf(0,1,'Size of %s.%s unknown; its value cannot be read', gizmo, tag)
                 v = nan;
             elseif n <= 1
-                v = obj.HW.getParameterValue(gizmo, tag);
+                v = obj.readScalar_(gizmo, tag);
             else
                 v = obj.HW.getParameterValues(gizmo, tag, n);
             end
         end
 
+        function v = readScalar_(obj, gizmo, tag)
+            % v = readScalar_(obj, gizmo, tag)
+            % One scalar from Synapse in ONE request.
+            %
+            % SynapseAPI.getParameterValue follows every read that returns 0
+            % with a second request, for the mode (its checkMode), only to
+            % print a warning when Synapse is idle. Zero is the ordinary
+            % value of most of what the trial loop polls -- TrialComplete is
+            % 0 on every tick but the one a trial ends on -- so the session
+            % paid two HTTP round trips for nearly every read. The client's
+            % own sendGet is the same request without the follow-up, and
+            % returns exactly what getParameterValue would have. The mode it
+            % was asking about is already watched, once per tick, by the
+            % session.
+            %
+            % A client without sendGet (the test double) is asked the old
+            % way; which it is gets resolved once per connection.
+            if isempty(obj.directRead_)
+                obj.directRead_ = ismethod(obj.HW, 'sendGet');
+            end
+            if obj.directRead_
+                v = obj.HW.sendGet(sprintf('/params/%s.%s', gizmo, tag), 'value');
+            else
+                v = obj.HW.getParameterValue(gizmo, tag);
+            end
+        end
+
         function applyModeState_(obj, mode)
             obj.ModeState_ = mode;
+            obj.modeTic_ = [];
             if ~obj.IsConnected || isempty(obj.HW)
                 return
             end
 
             target = obj.synapseMode_(mode);
             actual = obj.awaitMode_(target);
+            % What Synapse actually reached, not what was asked for, and
+            % fresh as of now (queryModeState_).
+            obj.ModeState_ = actual;
+            obj.modeTic_ = tic;
             if actual ~= target
                 error('hw:TDT_Synapse:ModeRejected', ...
                     'Synapse did not enter %s within %g s; it is in %s.%s', ...
@@ -759,8 +804,19 @@ classdef TDT_Synapse < hw.Interface
                 return
             end
 
+            % The session reads mode on every 10 ms tick, and here that is
+            % an HTTP request. Answer from the last one for MODE_INTERVAL;
+            % a mode write, a connect and a disconnect all drop it, so the
+            % cache is never older than that and never survives a change
+            % this object made.
+            if ~isempty(obj.modeTic_) && toc(obj.modeTic_) < obj.MODE_INTERVAL
+                mode = obj.ModeState_;
+                return
+            end
+
             mode = hw.DeviceState(obj.HW.getMode());
             obj.ModeState_ = mode;
+            obj.modeTic_ = tic;
         end
 
         function target = synapseMode_(~, mode)

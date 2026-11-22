@@ -35,6 +35,8 @@ function R = bench_trial_boundary(options)
 %   CallDelay     - seconds each device call busy-waits. Default 0
 %   ProbeTTL      - seconds the double may cache its connection probe, as
 %                   hw.TDT_RPcox does. Default 0.25
+%   ModeTTL       - seconds the double may answer a mode read from the last
+%                   one, as the TDT backends do. Default 0.1
 %   CoerceSingle  - device keeps numerics in single precision. Default true
 %   YieldInTrigger- hold the trigger pulse with pause (yields). Default false
 %   Ticks         - idle ticks to count. Default 50
@@ -63,6 +65,7 @@ arguments
     options.BufferSamples (1,1) double {mustBeNonnegative, mustBeInteger} = 0
     options.CallDelay (1,1) double {mustBeNonnegative} = 0
     options.ProbeTTL (1,1) double {mustBeNonnegative} = 0.25
+    options.ModeTTL (1,1) double {mustBeNonnegative} = 0.1
     options.CoerceSingle (1,1) logical = true
     options.YieldInTrigger (1,1) logical = false
     options.Ticks (1,1) double {mustBeNonnegative, mustBeInteger} = 50
@@ -81,7 +84,8 @@ cleanupScratch = onCleanup(@() localRmdir(scratch));
 % --- Protocol: one counted device plus the software module -----------------
 P = epsych.Protocol(Info = 'bench_trial_boundary');
 dev = CountingProbeInterface(CallDelay = 0, CoerceSingle = options.CoerceSingle, ...
-    ProbeTTL = options.ProbeTTL, YieldInTrigger = options.YieldInTrigger);
+    ProbeTTL = options.ProbeTTL, ModeTTL = options.ModeTTL, ...
+    YieldInTrigger = options.YieldInTrigger);
 P.addInterface(dev);
 
 W = cell(1, options.NumWrite);

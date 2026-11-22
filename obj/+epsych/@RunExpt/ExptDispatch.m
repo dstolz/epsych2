@@ -153,6 +153,17 @@ switch COMMAND
 
         self.RUNTIME.TIMER = self.CreateTimer;
 
+        % Whether hardware going Idle stops a multi-interface session is the
+        % rig's choice (see RunExpt.StopOnIdleHardware). Read behind ispref:
+        % getpref with a default would create the preference.
+        if ispref('EPsych', 'StopOnIdleHardware')
+            v = getpref('EPsych', 'StopOnIdleHardware');
+            if isscalar(v) && (islogical(v) || isnumeric(v))
+                self.StopOnIdleHardware = logical(v);
+            end
+        end
+        self.IdleCheckTic_ = [];
+
         % Trial-loop timing is recorded only when asked for (preference
         % EPsych/TickStats); see epsych.TickStats. Reported at Stop.
         if epsych.TickStats.enabledByPref()

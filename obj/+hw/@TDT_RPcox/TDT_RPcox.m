@@ -47,6 +47,10 @@ classdef TDT_RPcox < hw.Interface
         % ioReady. Empty linkTic_ means "probe next time".
         linkTic_ = []
         linkUp_ (1,1) logical = false
+
+        % When ModeState_ was last asked of the device; empty = ask next
+        % time (queryModeState_).
+        modeTic_ = []
     end
 
     properties (SetObservable,AbortSet)
@@ -66,6 +70,10 @@ classdef TDT_RPcox < hw.Interface
         % probe is a GetStatus COM call per module; made before every read,
         % write and trigger it was most of the COM traffic of a session.
         PROBE_INTERVAL = 0.25
+
+        % Seconds a mode query may be answered from the last one
+        % (queryModeState_).
+        MODE_INTERVAL = 0.1
     end
 
 
@@ -815,9 +823,10 @@ classdef TDT_RPcox < hw.Interface
         end
 
         function dropLink_(obj)
-            % Forget the cached connection probe, so the next ioReady asks
-            % the device.
+            % Forget the cached connection probe and the cached mode, so the
+            % next ioReady and the next mode query ask the device.
             obj.linkTic_ = [];
+            obj.modeTic_ = [];
         end
 
         function applyModeState_(obj, mode)
@@ -837,6 +846,17 @@ classdef TDT_RPcox < hw.Interface
         end
 
         function mode = queryModeState_(obj)
+            % The session reads mode on every 10 ms tick. Answer from the
+            % last query for MODE_INTERVAL; everything that can change the
+            % answer from this side -- a mode write, connect, disconnect, a
+            % circuit reload -- drops the cache (dropLink_), which is what
+            % keeps "a freshly loaded circuit already reports Record" true
+            % for the AbortSet comparison a mode write makes.
+            if ~isempty(obj.modeTic_) && toc(obj.modeTic_) < obj.MODE_INTERVAL
+                mode = obj.ModeState_;
+                return
+            end
+
             if ~obj.ioReady() || isempty(obj.HW)
                 mode = obj.ModeState_;
                 return
@@ -858,6 +878,7 @@ classdef TDT_RPcox < hw.Interface
                     mode = obj.ModeState_;
             end
             obj.ModeState_ = mode;
+            obj.modeTic_ = tic;
         end
     end
 

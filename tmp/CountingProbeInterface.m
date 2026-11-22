@@ -161,6 +161,11 @@ classdef CountingProbeInterface < hw.Interface
             end
             obj.Counts.TrigWrite = obj.Counts.TrigWrite + 1;
             obj.deviceCall_();
+            % Logged as hw.TDT_RPcox logs it, so the record count is the
+            % real backends' count.
+            if ~obj.InDispatch
+                vprintf(3, 'Triggered "%s"', P.Name)
+            end
         end
 
         function result = set_parameter(obj, name, value)
@@ -274,6 +279,9 @@ classdef CountingProbeInterface < hw.Interface
             end
             obj.Store.(p.validName) = v;
             ok = true;
+            if ~obj.InDispatch
+                vprintf(4, 'Updated parameter: %s = %s', p.Name, p.formatValue(v))
+            end
         end
 
         function deviceCall_(obj)

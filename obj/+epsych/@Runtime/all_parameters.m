@@ -47,7 +47,6 @@ function P = all_parameters(obj, options)
         if ~isempty(interfaceFilter) && ~any(cellfun(@(c) isa(iface, c), interfaceFilter))
             continue
         end
-        vprintf(4, 'Retrieving all parameters from %s', class(iface))
         P = [P, iface.all_parameters(copts{:})];
     end
 

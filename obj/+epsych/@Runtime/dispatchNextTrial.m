@@ -41,13 +41,25 @@ vprintf(2,'Trial #%d: New Trial Sequence for box %d',T.TrialIndex,subjectIdx)
 ts = obj.TickStats;
 timed = ~isempty(ts);
 
+% From here to the end of the NewTrial pulse every interface knows that what
+% it is asked to write belongs to a trial dispatch (hw.Interface.InDispatch).
+% A backend then leaves its per-write success record to the one summary
+% record below: with the log taking every level by default, a record per
+% parameter from here plus another per write from the backend was two
+% dbstack-and-file-write records for each of some forty parameters, on every
+% trial, while the subject waited. Failures are still logged where they
+% happen, and a write made outside a dispatch keeps its own record.
+ifaces = obj.Interfaces;
+for k = 1:numel(ifaces)
+    ifaces(k).InDispatch = true;
+end
+endDispatch = onCleanup(@() localEndDispatch(ifaces));
+
 % 1. Send trigger to reset components before updating parameters
-vprintf(4,'Hardware Trigger for ResetTrig')
 obj.TRIGGERS(subjectIdx).ResetTrig.Trigger();
 if timed, ts.mark("reset"); end
 
 % 2. Dispatch write parameters for this trial (Access ~= 'Read')
-vprintf(4,'Update parameter tags')
 P = T.parameters(dispatchIdx);
 trialRow = T.trials(T.NextTrialID, dispatchIdx);
 
@@ -79,26 +91,47 @@ dispatchOrder = obj.DispatchOrderCache_(subjectIdx).order;
 P = P(dispatchOrder);
 trialRow = trialRow(dispatchOrder);
 
-% 3. Assign next trial parameter values to the parameter objects. 
+% 3. Assign next trial parameter values to the parameter objects.
 for j = 1:numel(P)
-    vprintf(4,'Trial #%d: %s = %g', ...
-        T.TrialIndex, ...
-        P(j).Name, ...
-        trialRow{j})
-
     P(j).Value = trialRow{j};
+end
+
+% One record for the whole dispatch, listing what each parameter was actually
+% given -- after randomization, its Expression and clamping, which is why the
+% value comes from the parameter and not from the trial row. Built only when
+% a destination wants trace records: it is a string per parameter.
+if visenabled(4)
+    parts = cell(1, numel(P));
+    for j = 1:numel(P)
+        [v, known] = P(j).hostValue();
+        if ~known, v = trialRow{j}; end
+        parts{j} = [P(j).Name '=' P(j).formatValue(v)];
+    end
+    vprintf(4, 'Trial #%d dispatch for box %d: %s', T.TrialIndex, subjectIdx, strjoin(parts, ', '))
 end
 if timed, ts.mark("writes"); end
 
 % 4. Trigger new trial
-vprintf(4,'Hardware Trigger for NewTrial')
 obj.TRIGGERS(subjectIdx).NewTrial.Trigger();
 if timed, ts.mark("trigger"); end
 
+% The dispatch is over: a listener that writes a parameter from here on is
+% not part of it.
+clear endDispatch
+
 % 5. Notify whomever is listening of new trial
-vprintf(4,'Notify listeners with new trial data')
 evtdata = epsych.TrialsData(T);
 obj.EVENTS.notify('NewTrial',evtdata);
 if timed, ts.mark("newTrial"); end
 
+end
+
+
+function localEndDispatch(ifaces)
+% Clear the in-dispatch flag, on every exit path.
+for k = 1:numel(ifaces)
+    if isvalid(ifaces(k))
+        ifaces(k).InDispatch = false;
+    end
+end
 end

@@ -51,6 +51,17 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
         RunOffline (1,1) logical = false
     end
 
+    properties (Transient, Hidden)
+        % True while epsych.Runtime.dispatchNextTrial is writing a trial's
+        % parameters to this interface, from the ResetTrig pulse to the end
+        % of the NewTrial pulse. A backend reads it to tell a dispatch write
+        % from every other kind -- an operator's commit, a phase load, the
+        % parameter debugger, calibration -- and may then leave its
+        % per-write success record to the dispatcher's one summary record.
+        % Nothing but the dispatcher sets it.
+        InDispatch (1,1) logical = false
+    end
+
 
 
     methods (Abstract,Access = protected)

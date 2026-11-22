@@ -497,7 +497,11 @@ classdef TDT_Synapse < hw.Interface
 
             ok = obj.HW.setParameterValue(gizmo, tag, 0);
             if ok
-                vprintf(3,'Triggered "%s"',P.Name)
+                % hw.Parameter.Trigger logs the same event; one record per
+                % pulse is enough while a dispatch is in progress.
+                if ~obj.InDispatch
+                    vprintf(3,'Triggered "%s"',P.Name)
+                end
             else
                 % The edge fired; the line is now stuck high, which the next
                 % pulse will not deliver. Report, do not abort the trial.
@@ -578,8 +582,12 @@ classdef TDT_Synapse < hw.Interface
                     % Format the value just written rather than reading
                     % p.ValueStr back: the read-back is a round trip per
                     % parameter per trial, and on a write-only tag it has
-                    % nothing to return.
-                    vprintf(4,'Updated parameter: %s = %s',p.Name,p.formatValue(v))
+                    % nothing to return. During a trial dispatch the
+                    % dispatcher's one summary record carries every value
+                    % (InDispatch).
+                    if ~obj.InDispatch
+                        vprintf(4,'Updated parameter: %s = %s',p.Name,p.formatValue(v))
+                    end
                 else
                     vprintf(0,1,'Failed to write %s = %s to %s.%s (Synapse mode: %s)', ...
                         p.Name, p.formatValue(v), gizmo, tag, char(obj.queryModeState_()))

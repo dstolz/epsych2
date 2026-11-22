@@ -126,6 +126,17 @@ classdef Parameter < matlab.mixin.SetGet
         BoundsInclusive (1,2) logical = [true true] % whether Min [1] and Max [2] bounds are inclusive
     end
 
+    properties (Transient, Hidden, SetAccess = private)
+        % Host-side copy of what set.Value last stored. get.Value is the only
+        % code that can read the stored Value itself: from anywhere else,
+        % obj.Value IS the device round trip on a connected backend. Code
+        % that needs "what the host last gave this parameter" -- a trace
+        % record, a control deciding whether anything changed -- reads this
+        % through hostValue() and costs the device nothing.
+        HostValue_ = []
+        HostValueKnown_ (1,1) logical = false
+    end
+
     properties (Dependent)
         ValueStr % string representation of Value based on Format
         validName % valid MATLAB variable name based on Name
@@ -379,6 +390,8 @@ classdef Parameter < matlab.mixin.SetGet
             value = obj.clamp_value_(value);
 
             obj.Value = value;
+            obj.HostValue_ = value;
+            obj.HostValueKnown_ = true;
             obj.isArray = numel(value) > 1;
 
             % 'StimType' is written like any other type: the backend receives the
@@ -394,6 +407,25 @@ classdef Parameter < matlab.mixin.SetGet
              obj.lastUpdated = now;
 
             obj.execute_PostUpdateFcn(value);
+        end
+
+        function [v, known] = hostValue(obj)
+            % [v, known] = hostValue(obj)
+            % The value set.Value last stored, with no device I/O.
+            %
+            % obj.Value on a connected backend reads the DEVICE. This reads
+            % the host's own copy: what the parameter was last given, after
+            % randomization, its Expression, the evaluator and clamping. It
+            % is not a substitute for a read-back -- a device that coerces a
+            % value (a float32 tag, an integer tag, a pump's four digits) or
+            % refuses a write holds something else -- so use it to answer
+            % "did the host change this?", not "what does the device hold?".
+            %
+            % Returns:
+            %   v     - the stored value; [] when nothing has been set
+            %   known - false until set.Value has run once on this parameter
+            v = obj.HostValue_;
+            known = obj.HostValueKnown_;
         end
 
         function vstr = get.ValueStr(obj)

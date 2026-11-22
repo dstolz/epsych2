@@ -135,14 +135,16 @@ for i = 1:RUNTIME.NSubjects
 
     % Select next trial using selector object
     try
-        vprintf(3,'Selecting next trial for box %d using %s',i,class(RUNTIME.TRIALS(i).selector))
+        % One record after the fact rather than one before and one after:
+        % every record written here is time the subject waits through.
         tcf = tic;
         RUNTIME.TRIALS(i).NextTrialID = RUNTIME.TRIALS(i).selector.selectNext(RUNTIME.TRIALS(i));
         dt = toc(tcf);
         if dt > 0.25
             vprintf(2,1,'Warning: Trial selector "%s" is taking %.4f seconds to select the next trial for subject %d. Consider optimizing the trial selection function or pre-compiling trial sequences if possible.', class(RUNTIME.TRIALS(i).selector), dt, i)
         else
-            vprintf(4,'%s ran in %.4f seconds',class(RUNTIME.TRIALS(i).selector),dt)
+            vprintf(3,'%s selected trial %d for box %d in %.4f seconds', ...
+                class(RUNTIME.TRIALS(i).selector), RUNTIME.TRIALS(i).NextTrialID, i, dt)
         end
 
     catch me

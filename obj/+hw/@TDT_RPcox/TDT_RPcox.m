@@ -557,7 +557,11 @@ classdef TDT_RPcox < hw.Interface
             % as it always was meant to be, so the caller still gets t.
             e = hwHandle.write(trig,0);
             if e
-                vprintf(3,'Triggered "%s"',P.Name)
+                % hw.Parameter.Trigger logs the same event; one record per
+                % pulse is enough while a dispatch is in progress.
+                if ~obj.InDispatch
+                    vprintf(3,'Triggered "%s"',P.Name)
+                end
             else
                 vprintf(0,1,'Triggered "%s" but could not reset it to 0 on module "%s"; the tag may still be high', ...
                     trig, P.Module.Label)
@@ -614,8 +618,12 @@ classdef TDT_RPcox < hw.Interface
                     % Format the value just written rather than reading
                     % p.ValueStr back: the read-back is a hardware round trip
                     % per parameter per trial, and on a write-only tag it has
-                    % nothing to return.
-                    vprintf(4,'Updated parameter: %s = %s',p.Name,p.formatValue(v))
+                    % nothing to return. During a trial dispatch the
+                    % dispatcher's one summary record carries every value, so
+                    % a second record per write is left out (InDispatch).
+                    if ~obj.InDispatch
+                        vprintf(4,'Updated parameter: %s = %s',p.Name,p.formatValue(v))
+                    end
                 else
                     vprintf(0,1,'Failed to write value to "%s"',p.Name)
                 end

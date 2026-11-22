@@ -59,7 +59,11 @@ classdef Runtime < handle & dynamicprops
         TRIALS            % Protocol-specific trial information, including trial selection function, trial parameters, and trial count
         DefaultDataPath (1,1) string = "" % Default data path for output
         EVENTS            % Event broadcaster shared by the session (epsych.EventHub)
-        TIMER (1,1) timer % MATLAB timer object for runtime services
+        % TIMER - The session's PsychTimer; empty until a run creates one.
+        % The default is timer.empty and not a scalar timer: a (1,1) timer
+        % property makes MATLAB construct one when the class loads, an idle
+        % timer every Runtime then shares and nothing deletes.
+        TIMER timer {mustBeScalarOrEmpty} = timer.empty
 
 
         TempDataDir (1,1) string = "" % Directory for acquired data

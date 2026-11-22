@@ -36,7 +36,7 @@ Primary method files:
 | `TRIGGERS` | Per-subject cached handles to the required trigger parameters `NewTrial`, `ResetTrig`, `TrialComplete`. |
 | `P` | Cached struct of all parameters (keyed by `validName`), populated when `TRIALS` is first set. GUI components use this instead of repeating lookups. |
 | `EVENTS` | `epsych.EventHub` event broadcaster (`NewData`, `NewTrial`, `ModeChange`). |
-| `TIMER` | The MATLAB `PsychTimer` object. |
+| `TIMER` | The MATLAB `PsychTimer` object; empty (`timer.empty`) until a run creates one, so test `isempty` before `isvalid`. Constructing a `Runtime` creates no timer. |
 | `NSubjects` | Number of subjects (read-only; derived from `TRIALS`). |
 | `isTest` | True for Preview runs; recorded into every trial's data. |
 | `DataFile`, `TempDataDir`, `DefaultDataPath` | Crash-recovery file paths and default data directory. |

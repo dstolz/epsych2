@@ -24,6 +24,11 @@ classdef CountingProbeInterface < hw.Interface
     %                    tag reads back. Default false
     %   RefuseWrites   - cellstr of parameter names whose writes return false
     %                    and store nothing
+    %   ThrowOn        - cellstr of parameter names whose READ throws
+    %                    CountingProbe:readFailed, as a failing device call would
+    %   RefuseArrays   - get_parameter given more than one parameter throws
+    %                    MATLAB:TooManyInputs, as a backend that takes one
+    %                    name and no options does (Counts.Refused)
     %   ProbeTTL       - seconds ioReady may serve a cached probe. 0 = probe
     %                    every time
     %   ModeTTL        - seconds a mode read may be answered from the last
@@ -64,6 +69,8 @@ classdef CountingProbeInterface < hw.Interface
         CallDelay      (1,1) double = 0
         CoerceSingle   (1,1) logical = false
         RefuseWrites   (1,:) cell = {}
+        ThrowOn        (1,:) cell = {}
+        RefuseArrays   (1,1) logical = false
         ProbeTTL       (1,1) double = 0
         ModeTTL        (1,1) double = 0
         YieldInTrigger (1,1) logical = false
@@ -221,6 +228,13 @@ classdef CountingProbeInterface < hw.Interface
                     silenceParameterNotFound = options.silenceParameterNotFound);
             end
 
+            if obj.RefuseArrays && ~isscalar(P)
+                % What a backend whose get_parameter takes one name and no
+                % options (hw.VlcRecorder) answers an array call with.
+                obj.Counts.Refused = obj.Counts.Refused + 1;
+                error('MATLAB:TooManyInputs', 'Too many input arguments.');
+            end
+
             value = cell(size(P));
             if ~obj.ioReady()
                 % Offline: the stored hw.Parameter value, which get.Value
@@ -230,6 +244,9 @@ classdef CountingProbeInterface < hw.Interface
                 end
             else
                 for i = 1:numel(P)
+                    if any(strcmp(obj.ThrowOn, P(i).Name))
+                        error('CountingProbe:readFailed', 'read of "%s" failed', P(i).Name);
+                    end
                     obj.Counts.Read = obj.Counts.Read + 1;
                     obj.deviceCall_();
                     f = P(i).validName;
@@ -307,7 +324,8 @@ classdef CountingProbeInterface < hw.Interface
     methods (Static)
         function c = zeroCounts()
             c = struct('Probe', 0, 'Read', 0, 'Write', 0, 'Skipped', 0, ...
-                'TrigWrite', 0, 'Trigger', 0, 'Status', 0, 'GetCalls', 0, 'SetCalls', 0);
+                'TrigWrite', 0, 'Trigger', 0, 'Status', 0, 'GetCalls', 0, 'SetCalls', 0, ...
+                'Refused', 0);
         end
 
         function spec = getCreationSpec()

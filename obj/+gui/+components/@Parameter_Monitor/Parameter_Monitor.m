@@ -308,6 +308,10 @@ classdef Parameter_Monitor < gui.PopOut
         suppressHighlight_ (1,1) logical = true
 
         destroyListener_ % deletes this monitor when its display is destroyed
+
+        % hw.ReadPlan for the readable parameters shown, rebuilt when that
+        % set changes (hide/show, reorder). See readValues_.
+        ReadPlan_ = []
     end
 
     properties (Constant)
@@ -650,7 +654,12 @@ classdef Parameter_Monitor < gui.PopOut
             % update_graphical_ (which also refreshes ParameterValues); reading
             % ValueStr here as well would double the hardware I/O per poll.
             if obj.type ~= "graphical"
-                obj.ParameterValues = string(arrayfun(@(p) p.ValueStr, P,'uni',0));
+                vals = obj.readValues_(P);
+                txt = cell(1, numel(P));
+                for k = 1:numel(P)
+                    txt{k} = P(k).formatValue(vals{k});
+                end
+                obj.ParameterValues = string(txt);
             end
         end
 
@@ -682,6 +691,41 @@ classdef Parameter_Monitor < gui.PopOut
     methods (Access = private)
         build_graphical_(obj)   % create the widget grid for type="graphical"
         update_graphical_(obj)  % efficient per-widget refresh for type="graphical"
+
+        function vals = readValues_(obj, P)
+            % vals = readValues_(obj, P)
+            % One value per parameter of P, as a 1xN cell, from ONE backend
+            % call per interface (hw.ReadPlan) rather than a property get per
+            % parameter per poll. At a 0.1 s poll over a dozen parameters the
+            % per-parameter reads were a few hundred device round trips a
+            % second, all session, on the thread the trial loop runs on.
+            %
+            % A write-only parameter is not read at all: it has nothing to
+            % read back, and hw.Parameter.get.Value logs a critical record
+            % for trying. It shows its first design-time level, which is what
+            % hw.Parameter.ValueStr shows for it.
+            vals = cell(1, numel(P));
+            if isempty(P)
+                return
+            end
+            writeOnly = strcmp({P.Access}, 'Write');
+            R = P(~writeOnly);
+            if ~isempty(R)
+                plan = obj.ReadPlan_;
+                if isempty(plan) || ~isvalid(plan) || ~plan.matches(R)
+                    plan = hw.ReadPlan(R);
+                    obj.ReadPlan_ = plan;
+                end
+                vals(~writeOnly) = plan.read();
+            end
+            for k = find(writeOnly)
+                if isempty(P(k).Values)
+                    vals{k} = nan;
+                else
+                    vals{k} = P(k).Values{1};
+                end
+            end
+        end
     end
 
     methods (Access = protected)

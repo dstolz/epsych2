@@ -50,17 +50,31 @@ function P = all_parameters(obj, options)
         P = [P, iface.all_parameters(copts{:})];
     end
 
-    if asStruct
+    if valueOnly
+        % Values come through a read plan: one backend call per interface
+        % rather than a property get per parameter, and field names made
+        % once rather than on every call. The trial-end sweep asks this of
+        % every readable parameter at every trial boundary, while the
+        % subject waits. The plan is kept and reused for as long as the
+        % parameter list it was built for is the one asked for again -- the
+        % same handles under the same names -- so a recompile, a phase load
+        % or a parameter added mid-session simply builds a new one. Each
+        % value is exactly what P(k).Value returns (hw.ReadPlan).
+        plan = obj.ReadPlanCache_;
+        if isempty(plan) || ~isvalid(plan) || ~plan.matches(P)
+            plan = hw.ReadPlan(P);
+            obj.ReadPlanCache_ = plan;
+        end
+        if asStruct
+            P = plan.readStruct();
+        else
+            P = plan.read();
+        end
+    elseif asStruct
         P_ = struct();
         for k = 1:numel(P)
-            if valueOnly
-                P_.(P(k).validName) = P(k).Value;
-            else
-                P_.(P(k).validName) = P(k);
-            end
+            P_.(P(k).validName) = P(k);
         end
         P = P_;
-    elseif valueOnly
-        P = arrayfun(@(p) p.Value, P, 'UniformOutput', false);
     end
 end

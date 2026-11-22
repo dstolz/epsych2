@@ -64,17 +64,31 @@ classdef TDTRP < handle
        CYC        = -1;
        FSOVERRIDE = 0;  % sample-rate override given at construction (0 = circuit's own); FS is the actual rate after setup()
     end
-    
+
+    properties (SetAccess = private)
+       % PARTAG's names and sizes as a cellstr and a vector, filled by
+       % setup(), so check_tag is one vectorised strcmp rather than a loop
+       % over a cell of structs on every read and write.
+       TAGNAMES   = {};
+       TAGSIZES   = [];
+    end
+
     methods
         function obj = setup(obj)
             % create map of tags and their sizes for all devices
             tag_num = double(obj.RP.GetNumOf('ParTag'));
             obj.PARTAG = cell(1, tag_num);
+            names = cell(1, tag_num);
+            sizes = zeros(1, tag_num);
             for i = 1:tag_num
                 obj.PARTAG{i}.tag_name = obj.RP.GetNameOf('Partag', i);
                 obj.PARTAG{i}.tag_type = obj.RP.GetTagType(obj.PARTAG{i}.tag_name);
                 obj.PARTAG{i}.tag_size = obj.RP.GetTagSize(obj.PARTAG{i}.tag_name);
+                names{i} = obj.PARTAG{i}.tag_name;
+                sizes(i) = double(obj.PARTAG{i}.tag_size);
             end
+            obj.TAGNAMES = names;
+            obj.TAGSIZES = sizes;
             obj.FS = obj.RP.GetSFreq;
             obj.CYC = obj.RP.GetCycUse;
         end
@@ -245,6 +259,19 @@ classdef TDTRP < handle
         function sz = check_tag(obj, tagname)
             sz = 0;
             tagind = -1;
+
+            % The usual case: setup() left the names and sizes side by side.
+            % First match wins, as the loop below has it. The lists are
+            % trusted only while they still describe PARTAG, which is a
+            % public property something else may have replaced.
+            if numel(obj.TAGNAMES) == numel(obj.PARTAG) && ~isempty(obj.TAGNAMES)
+                k = find(strcmp(obj.TAGNAMES, tagname), 1);
+                if ~isempty(k)
+                    sz = obj.TAGSIZES(k);
+                    return
+                end
+            end
+
             if ~isempty(obj.PARTAG)
                 tags = obj.PARTAG;
                 tagind = -1;

@@ -132,6 +132,7 @@ classdef Runtime < handle & dynamicprops
     end
 
     properties (Access = private)
+        ReadPlanCache_ = [] % hw.ReadPlan for the last parameter list all_parameters(valueOnly=true) was asked for; reused while that list is asked for again (see all_parameters)
         TRIALSInitialized_ (1,1) logical = false % True once TRIALS has been set for the first time on this Runtime instance
         DispatchOrderCache_ = struct('params', {}, 'order', {}, 'exprs', {}) % Per-subject dependency-ordered dispatch permutation; revalidated each trial against the dispatched parameter handles AND their Expression text, so an operator recompile (which replaces TRIALS.parameters) or an expression edited mid-session recomputes it
     end

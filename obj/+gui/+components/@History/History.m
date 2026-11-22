@@ -84,6 +84,9 @@ classdef History < gui.PopOut
         Updating_ = false            % Reentrancy guard for update
         MenuFields_ = {}             % DATA field names the columns menu was last built from
         MenuShown_ = {}              % ParametersOfInterest the menu check state was last built from
+        WeightedColumns_ = false     % true when the table takes weighted column widths (uifigure)
+        ColumnWeights_ = []          % characters each column was last given room for; see fitColumns_
+        ColumnWeightNames_ = {}      % the column names those weights belong to
 
         % Per-trial render caches, all in chronological order. A trial's row,
         % its formatted text, and its color are fixed once the trial is
@@ -206,6 +209,14 @@ classdef History < gui.PopOut
                 obj.TableH.ColumnSortable = true;
                 obj.TableH.ColumnRearrangeable = true;
                 obj.TableH.DisplayDataChangedFcn = @obj.onDisplayDataChanged;
+                % Column widths are weights this class sets (fitColumns_), not
+                % the default 'auto'. With 'auto', every Data assignment
+                % makes MATLAB measure the cell text of each column again and
+                % resend the column model -- about half of what a per-trial
+                % table update cost on the rig. Equal shares until the first
+                % rows say what each column holds.
+                obj.TableH.ColumnWidth = '1x';
+                obj.WeightedColumns_ = true;
             catch ME
                 % Header-click sorting and drag-to-rearrange require a uifigure-based uitable.
                 vprintf(3,'gui.components.History: column sorting/rearranging unavailable: %s',ME.message)
@@ -446,6 +457,30 @@ classdef History < gui.PopOut
                 obj.TableH.ColumnName = columnNames;
                 obj.TableH.ColumnFormat = repmat({'char'},1,numel(columnNames));
             end
+            obj.fitColumns_(tableData,columnNames);
+        end
+
+        function fitColumns_(obj,tableData,columnNames)
+            % fitColumns_(obj, tableData, columnNames)
+            % Share the table's width between its columns in proportion to
+            % the text each one holds, as the default 'auto' did -- but
+            % measured here, in characters, and written only when a column
+            % needs MORE than it has. A weight never shrinks, so over a
+            % session the widths are set a handful of times (the first
+            % "CorrectReject", the first four-digit latency) instead of
+            % being re-measured by MATLAB at every trial.
+            if ~obj.WeightedColumns_ || isempty(tableData), return; end
+
+            names = columnNames(:)';
+            % three characters more than the header, for the sort arrow
+            need = max(cellfun('length',names) + 3, max(cellfun('length',tableData),[],1));
+            if isequal(names,obj.ColumnWeightNames_)
+                if all(need <= obj.ColumnWeights_), return; end
+                need = max(need,obj.ColumnWeights_);
+            end
+            obj.ColumnWeights_ = need;
+            obj.ColumnWeightNames_ = names;
+            obj.TableH.ColumnWidth = compose('%dx',need);
         end
 
         function c = emptyRowCache(obj,key)

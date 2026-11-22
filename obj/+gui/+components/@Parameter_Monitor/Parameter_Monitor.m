@@ -312,6 +312,10 @@ classdef Parameter_Monitor < gui.PopOut
         % hw.ReadPlan for the readable parameters shown, rebuilt when that
         % set changes (hide/show, reorder). See readValues_.
         ReadPlan_ = []
+
+        % The parameters ParameterNames was last built from. [] = never
+        % built. See update_parameters.
+        NamedParameters_ = []
     end
 
     properties (Constant)
@@ -648,7 +652,16 @@ classdef Parameter_Monitor < gui.PopOut
             % Hidden parameters are skipped entirely: hiding a parameter
             % removes its per-poll hardware read as well as its display.
             P = obj.VisibleParameters;
-            obj.ParameterNames = string(arrayfun(@(p) p.Name, P,'uni',0));
+
+            % The names follow the visible list, which changes when a
+            % parameter is added, hidden, shown or reordered -- not at every
+            % poll. Rebuilding them each time was a sixth of a 0.1 s poll on
+            % the rig, all session.
+            Q = obj.NamedParameters_;
+            if ~(isa(Q, 'hw.Parameter') && numel(Q) == numel(P) && all(Q == P))
+                obj.ParameterNames = string(arrayfun(@(p) p.Name, P,'uni',0));
+                obj.NamedParameters_ = P;
+            end
 
             % The graphical display reads each parameter once per widget in
             % update_graphical_ (which also refreshes ParameterValues); reading

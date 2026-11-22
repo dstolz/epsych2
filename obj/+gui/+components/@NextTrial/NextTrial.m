@@ -272,6 +272,10 @@ classdef NextTrial < gui.PopOut
             end
             try
                 t.FontSize = fontSize;
+                % Two equal columns rather than the default 'auto', which
+                % makes MATLAB measure the cell text again at every Data
+                % assignment -- once per trial here (see gui.components.History).
+                t.ColumnWidth = '1x';
             catch
             end
             t.Data = cell(0,2);

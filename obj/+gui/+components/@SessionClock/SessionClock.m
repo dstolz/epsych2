@@ -401,7 +401,7 @@ classdef SessionClock < handle
             T.ExecutionMode  = 'fixedRate';
             T.TasksToExecute = inf;
             T.Period         = obj.UpdatePeriod;
-            T.TimerFcn       = @(~,~) obj.updateDisplay_();
+            T.TimerFcn       = @(~,~) obj.tick_();
             T.ErrorFcn       = @(~, ev) vprintf(0, 1, 'SessionClock error: %s', ev.Data.message);
             obj.Timer_       = T;
         end
@@ -486,6 +486,41 @@ classdef SessionClock < handle
             end
             obj.GridH.RowHeight = rh;
             obj.refreshMenuChecks_();
+            obj.applyTickRequirement_();
+        end
+
+        function tick_(obj)
+            % tick_(obj)
+            % The once-a-second refresh. Only the text can have changed since
+            % the last one: which lines show, their row heights and the
+            % menu's check marks follow the Show* properties, and everything
+            % that changes those calls updateDisplay_ itself. Re-applying
+            % them here cost more than the text did -- eight visibility
+            % writes, a layout write and a findall over the menu, every
+            % second of every session, each one more for the window to
+            % repaint.
+            if isempty(obj.GridH) || ~isvalid(obj.GridH), return; end
+
+            timeSource = struct( ...
+                'LastTrial',       obj.LastTrialTime_, ...
+                'FirstTrial',      obj.FirstTrialTime_, ...
+                'SessionDuration', obj.SessionStartTime_);
+
+            for i = 1:numel(obj.LINES_)
+                L = obj.LINES_(i);
+                if ~obj.(L.Prop), continue; end      % hidden: updateDisplay_ fills it when shown
+                if strcmp(L.Key, 'ClockTime')
+                    t = obj.elapsedReference_();
+                    t.Format = 'HH:mm:ss';
+                    txt = char(t);
+                else
+                    txt = obj.formatLine_('', timeSource.(L.Key));
+                end
+                lbl = obj.LabelH.(L.Key);
+                if ~strcmp(lbl.Text, txt)
+                    lbl.Text = txt;
+                end
+            end
             obj.applyTickRequirement_();
         end
 

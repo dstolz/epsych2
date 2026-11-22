@@ -145,6 +145,9 @@ classdef ParameterScatter < gui.PopOut
         CategoricalNames_ (1,:) cell = {} % validNames currently treated as text/categorical
         CategoryLevels_ = struct()  % validName -> cellstr of distinct values seen so far, in assigned order
         ResponseField_ (1,:) char = '' % DATA field holding response codes, backing the Response parameter
+        ColorbarLabelH_ = []         % ColorbarH's label object, fetched once; see colorbarLabel_
+        AvailKey_ = {}               % what availableParameters_ last answered for ...
+        AvailCache_ = {}             % ... and its answer: {avail, CategoricalNames_, ResponseField_}
 
         % Per-trial value caches, one entry per parameter. A trial's value is
         % fixed once recorded and a category keeps the code it was first
@@ -527,6 +530,20 @@ classdef ParameterScatter < gui.PopOut
                 numFn = f(isNum);
                 catFn = f(isCat);
             end
+
+            % Everything below is set arithmetic over these five lists, and
+            % they are the same from one trial to the next once the first
+            % record has named the fields. The answer is kept for as long as
+            % they are: the unions and differences were a sixth of what this
+            % component cost per trial.
+            if isempty(D), fields = {}; else, fields = fieldnames(D); end
+            key = {numFn, catFn, fields, obj.DeclaredNames_, ...
+                obj.DeclaredCategoricalNames_, obj.InvisibleNames_};
+            if isequal(key,obj.AvailKey_)
+                [avail,obj.CategoricalNames_,obj.ResponseField_] = obj.AvailCache_{:};
+                return
+            end
+
             numFn = union(numFn(:)',obj.DeclaredNames_);
             catFn = union(catFn(:)',obj.DeclaredCategoricalNames_);
             obj.CategoricalNames_ = setdiff(catFn,obj.InvisibleNames_);
@@ -542,6 +559,23 @@ classdef ParameterScatter < gui.PopOut
 
             fn = setdiff(union(numFn,obj.CategoricalNames_),obj.InvisibleNames_);
             avail = [{obj.TRIAL_NUMBER_LABEL} sort(fn(:))'];
+
+            obj.AvailKey_ = key;
+            obj.AvailCache_ = {avail,obj.CategoricalNames_,obj.ResponseField_};
+        end
+
+        function h = colorbarLabel_(obj)
+            % h = colorbarLabel_(obj)
+            % The colorbar's label object. ColorBar.Label is not a stored
+            % handle: each read of it runs the colorbar's own getter, and two
+            % reads per redraw were the costliest line of this component --
+            % over a third of it on the rig -- to set a string that had not
+            % changed. Fetched once per colorbar.
+            h = obj.ColorbarLabelH_;
+            if isempty(h) || ~isvalid(h) || ~isequal(h.Parent,obj.ColorbarH)
+                h = obj.ColorbarH.Label;
+                obj.ColorbarLabelH_ = h;
+            end
         end
 
         function name = resolveResponseField_(obj,D,numFn)
@@ -821,8 +855,8 @@ classdef ParameterScatter < gui.PopOut
                 obj.setIfChanged_(obj.ColorbarH,'TicksMode','manual');
                 obj.setIfChanged_(obj.ColorbarH,'TickLabels',cLabels(:));
                 obj.setIfChanged_(obj.ColorbarH,'TickLabelsMode','manual');
-                obj.setIfChanged_(obj.ColorbarH.Label,'String',obj.ColorParameter);
-                obj.setIfChanged_(obj.ColorbarH.Label,'Interpreter','none');
+                obj.setIfChanged_(obj.colorbarLabel_,'String',obj.ColorParameter);
+                obj.setIfChanged_(obj.colorbarLabel_,'Interpreter','none');
             else
                 c = obj.parameterValues_(D,obj.ColorParameter);
                 x(isnan(c)) = nan; % colormapped markers need a color value
@@ -847,8 +881,8 @@ classdef ParameterScatter < gui.PopOut
                 end
                 obj.setIfChanged_(obj.ColorbarH,'TicksMode','auto');
                 obj.setIfChanged_(obj.ColorbarH,'TickLabelsMode','auto');
-                obj.setIfChanged_(obj.ColorbarH.Label,'String',obj.ColorParameter);
-                obj.setIfChanged_(obj.ColorbarH.Label,'Interpreter','none');
+                obj.setIfChanged_(obj.colorbarLabel_,'String',obj.ColorParameter);
+                obj.setIfChanged_(obj.colorbarLabel_,'Interpreter','none');
             end
 
             % Style is written only when it changes: on a running session

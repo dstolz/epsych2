@@ -123,6 +123,17 @@ Three consequences shape the current design:
   trial. Set `RowBlockSize = 1` to render an exact row count and take the
   per-trial rebuild instead.
 - `ColumnName` and `ColumnFormat` are written only when they actually change.
+- Column widths are **weights the class sets itself**, not the default `'auto'`.
+  With `'auto'`, every `Data` assignment makes MATLAB measure the cell text of
+  each column again and resend the column model, which was about half of what
+  a per-trial table update cost on a rig. `fitColumns_` measures instead: each
+  column gets a weight equal to the characters its header or longest cell
+  needs, written as `'<n>x'`, so the columns share the table's width in
+  proportion to their text and always fill it. A weight only grows, and
+  `ColumnWidth` is written only when one must — the first `CorrectReject`,
+  the first four-digit latency — a handful of times a session. In a table too
+  narrow for its text every column is clipped in proportion; there is no
+  horizontal scroll bar.
 
 The MATLAB-side work is not flat in the number of rows, and it is the part that
 grows with a long session: a trial's row, its formatted text, and its color are

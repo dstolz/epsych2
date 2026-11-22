@@ -86,6 +86,12 @@ classdef Runtime < handle & dynamicprops
 
         TrialComplete  % Manual trial completion flag (if in use, wait for manual completion of trial in RPvds)
 
+        % Trial-loop timing (epsych.TickStats), or empty for none -- the
+        % default. Every call site tests isempty first, so a session that
+        % does not ask for timing pays nothing for it. RunExpt creates one at
+        % Run when preference EPsych/TickStats is true and reports it at Stop.
+        TickStats = []
+
         % The error that ended the run: RunExpt.PsychTimerError stores the
         % timer's lasterror here and the Error timer function (ep_TimerFcn_Error)
         % logs and rethrows it. Declared, because an undeclared property made

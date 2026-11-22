@@ -153,6 +153,13 @@ switch COMMAND
 
         self.RUNTIME.TIMER = self.CreateTimer;
 
+        % Trial-loop timing is recorded only when asked for (preference
+        % EPsych/TickStats); see epsych.TickStats. Reported at Stop.
+        if epsych.TickStats.enabledByPref()
+            self.RUNTIME.TickStats = epsych.TickStats(Period = self.RUNTIME.TIMER.Period);
+            vprintf(1, 'Trial-loop timing is on (preference EPsych/TickStats)')
+        end
+
         % Return each interface's per-session device state to its start-of-run
         % condition. Interfaces stay connected between runs, so a rerun of the
         % same subject would otherwise inherit the previous run's counters

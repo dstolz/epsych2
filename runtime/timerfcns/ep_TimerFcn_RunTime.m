@@ -38,6 +38,13 @@ for i = 1:RUNTIME.NSubjects
     end
 
 
+    % Trial-loop timing, when the session asked for it (epsych.TickStats).
+    % Everything from here to the end of the NewTrial pulse is time the
+    % subject waits through.
+    ts = RUNTIME.TickStats;
+    timed = ~isempty(ts);
+    if timed, ts.boundaryBegin(); end
+
     % Reset FORCE_TRIAL flag for next trial
     RUNTIME.TRIALS(i).FORCE_TRIAL = false;
 
@@ -59,6 +66,7 @@ for i = 1:RUNTIME.NSubjects
 
     % Store data in runtime struct for this trial
     RUNTIME.TRIALS(i).DATA(trialIdx) = data;
+    if timed, ts.mark("sweep"); end
 
     % Append only the new trial entry to the on-disk journal. Synchronous and
     % append-only: the record is durable when append() returns, at a flat cost
@@ -76,12 +84,16 @@ for i = 1:RUNTIME.NSubjects
         save(RUNTIME.DataFile(i), '-struct', 'S_', '-append', '-v6');
     end
 
+    if timed, ts.mark("journal"); end
+
     % Notify selector that this trial completed
     RUNTIME.TRIALS(i).selector.onComplete(RUNTIME.TRIALS(i).NextTrialID, data);
+    if timed, ts.mark("onComplete"); end
 
     % Broadcast event data has been updated
     evtdata = epsych.TrialsData(RUNTIME.TRIALS(i));
     RUNTIME.EVENTS.notify('NewData',evtdata);
+    if timed, ts.mark("newData"); end
 
     vprintf(3,'Trial #%d: Trial Over for box %d',RUNTIME.TRIALS(i).TrialIndex,i)
 
@@ -118,6 +130,7 @@ for i = 1:RUNTIME.NSubjects
             vprintf(0,1,me);
             vprintf(0,1,'Recompile failed for subject %d — preserving last valid runtime state.',i)
         end
+        if timed, ts.mark("recompile"); end
     end
 
     % Select next trial using selector object
@@ -140,8 +153,11 @@ for i = 1:RUNTIME.NSubjects
     
 
     
+    if timed, ts.mark("select"); end
+
     % --- End of trial processing, now next trial is selected and ready to dispatch on the next timer tick ---
     RUNTIME.dispatchNextTrial(i);
+    if timed, ts.boundaryEnd(); end
 
 end
 

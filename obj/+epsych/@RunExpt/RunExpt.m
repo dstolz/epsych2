@@ -620,11 +620,15 @@ classdef RunExpt < handle
 
         function PsychTimerRunTime(self)
             % Timer runtime callback; stops the experiment automatically if hardware enters idle state.
+            ts = self.RUNTIME.TickStats;
+            timed = ~isempty(ts);
+            if timed, ts.tickBegin(); end
             if any(get(self.RUNTIME.Interfaces,'mode') == hw.DeviceState.Idle)
                 self.ExptDispatch("Stop")
                 return
             end
             self.RUNTIME = feval(self.FUNCS.TIMERfcn.RunTime, self.RUNTIME);
+            if timed, ts.tickEnd(); end
         end
 
         function PsychTimerError(self, evt)
@@ -658,6 +662,15 @@ classdef RunExpt < handle
             self.StopVideoRecording_;
             vprintf(3,'PsychTimerStop:Calling timer Stop function: %s',self.FUNCS.TIMERfcn.Stop)
             self.RUNTIME = feval(self.FUNCS.TIMERfcn.Stop, self.RUNTIME);
+            % Trial-loop timing, when this run recorded any (preference
+            % EPsych/TickStats). It stays on RUNTIME.TickStats afterwards.
+            if ~isempty(self.RUNTIME.TickStats)
+                try
+                    self.RUNTIME.TickStats.report();
+                catch ME
+                    vprintf(0,1,ME);
+                end
+            end
             vprintf(3,'PsychTimerStop:Calling UpdateGUIstate')
             self.UpdateGUIstate
             vprintf(3,'PsychTimerStop:Calling SaveDataCallback')

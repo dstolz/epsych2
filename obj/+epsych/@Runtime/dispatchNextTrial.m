@@ -36,9 +36,15 @@ dispatchIdx = notReadOnly & (updateEveryTrial | (setOnce & T.TrialIndex == 1));
 % vvvvvvvvvvvvv  NEW TRIAL SEQUENCE  vvvvvvvvvvvvv
 vprintf(2,'Trial #%d: New Trial Sequence for box %d',T.TrialIndex,subjectIdx)
 
+% Trial-loop timing, when the session asked for it. Outside a trial boundary
+% (the first dispatch, a regenerate) the marks are ignored.
+ts = obj.TickStats;
+timed = ~isempty(ts);
+
 % 1. Send trigger to reset components before updating parameters
 vprintf(4,'Hardware Trigger for ResetTrig')
 obj.TRIGGERS(subjectIdx).ResetTrig.Trigger();
+if timed, ts.mark("reset"); end
 
 % 2. Dispatch write parameters for this trial (Access ~= 'Read')
 vprintf(4,'Update parameter tags')
@@ -82,14 +88,17 @@ for j = 1:numel(P)
 
     P(j).Value = trialRow{j};
 end
+if timed, ts.mark("writes"); end
 
 % 4. Trigger new trial
 vprintf(4,'Hardware Trigger for NewTrial')
 obj.TRIGGERS(subjectIdx).NewTrial.Trigger();
+if timed, ts.mark("trigger"); end
 
 % 5. Notify whomever is listening of new trial
 vprintf(4,'Notify listeners with new trial data')
 evtdata = epsych.TrialsData(T);
 obj.EVENTS.notify('NewTrial',evtdata);
+if timed, ts.mark("newTrial"); end
 
 end

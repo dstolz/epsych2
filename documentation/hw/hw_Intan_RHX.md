@@ -188,6 +188,61 @@ session, an unchanged path is not reloaded. If the value changes mid-session,
 the next run reloads it (loading takes several seconds; see `SettingsLoadWait`).
 The settings path is also space-free.
 
+## Example: a project settings file with per-subject recording targets
+
+This walkthrough sets one RHX settings file for a whole project and records
+each subject's data into its own folder under its own name. It uses project
+`AudCortex`, subjects `M101` and `M102`, and settings file
+`D:/IntanSettings/AudCortex_64ch.xml`.
+
+1. **Leave the protocol's Settings File blank.** In `epsych.ProtocolDesigner`,
+   select the protocol's Intan RHX interface, clear **Settings File**, then
+   Modify and Save. A settings file named in the protocol always wins, so the
+   project's value is used only when this field is empty. Host and Port are set
+   here as usual.
+2. **Set the project defaults.** In Subjects & Projects, select `AudCortex`,
+   open Project → Edit Project… → **Session Defaults**, and set:
+   - **Intan Settings File**: `D:/IntanSettings/AudCortex_64ch.xml`
+   - **Intan Recording Path**: `D:/IntanData`
+
+   Both paths must be space-free. The settings path is opened by RHX, so it
+   must be valid on the machine running RHX.
+3. **Apply the defaults to existing members.** Project defaults are copied onto
+   a subject's membership when the subject is assigned, so subjects that were
+   already in the project keep their old values. Tick them and use Project →
+   **Re-apply Project Template to Checked**. Subjects added later receive the
+   new values automatically.
+4. **Optional: a different recording root for one subject.** Select the
+   subject's row, open Subject → **Session Settings…**, and set **Intan
+   Recording Path** (for example `E:/IntanData_M102`). The Settings column then
+   shows `edited` for that subject.
+5. **Run.** Tick one subject, click **Add Checked to Session**, then Run.
+
+What this gives for `M101` on the shared root:
+
+| Item | Value |
+|---|---|
+| Settings file | `D:/IntanSettings/AudCortex_64ch.xml`, loaded when the interface connects |
+| Recording folder | `D:/IntanData/M101/` (the subject folder is always added under the root) |
+| Base filename | `M101_261122T143005`, the stem of the behavioral `.mat` (`<Name>_<yyMMddTHHmmss>`) |
+| File on disk | `M101_261122T143005_261122_143007.rhd`. RHX appends its own `_YYMMDD_HHMMSS` and, with CreateNewDirectory on (the RHX default), places the file in a timestamped subfolder |
+
+With step 4, `M102` records under `E:/IntanData_M102/M102/` and is named the
+same way.
+
+Limits:
+
+- **The base filename is not configurable.** It is always derived from the
+  subject name and the run's timestamp (`prepareRecording` /
+  `deriveRecordingTarget_`). A different naming scheme needs a code change.
+- **Run one Intan subject per session.** The recording is named after subject 1
+  only. The Intan Recording Path and Intan Settings File are session-level
+  fields, so Add Checked to Session refuses a batch whose memberships disagree
+  on them.
+- **Subject names must be space-free.** The name becomes part of the RHX path,
+  and a Record run with a spaced target aborts with
+  `hw:Intan_RHX:UnrepresentableFilename`.
+
 ## Sample rate and controller type validation
 
 RHX fixes the board sample rate and reports the controller type from the loaded

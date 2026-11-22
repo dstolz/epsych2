@@ -42,6 +42,11 @@ classdef TDT_RPcox < hw.Interface
 
     properties (Access = private)
         ModeState_ (1,1) hw.DeviceState = hw.DeviceState.Idle
+
+        % The connection probe's last answer and when it was taken, for
+        % ioReady. Empty linkTic_ means "probe next time".
+        linkTic_ = []
+        linkUp_ (1,1) logical = false
     end
 
     properties (SetObservable,AbortSet)
@@ -56,6 +61,11 @@ classdef TDT_RPcox < hw.Interface
         % Seconds a trigger tag is held high between the write of 1 and the
         % write of 0 (hw.Interface.holdPulse).
         PULSE_HOLD = 0.001
+
+        % Seconds ioReady may answer from its last connection probe. The
+        % probe is a GetStatus COM call per module; made before every read,
+        % write and trigger it was most of the COM traffic of a session.
+        PROBE_INTERVAL = 0.25
     end
 
 
@@ -128,7 +138,37 @@ classdef TDT_RPcox < hw.Interface
             end
         end
 
+        function tf = ioReady(obj)
+            % tf = ioReady(obj)
+            % The I/O path's connection check: the GetStatus probe behind
+            % IsConnected, taken at most once per PROBE_INTERVAL.
+            %
+            % IsConnected itself stays live. What is cached here is only the
+            % answer the hot path acts on, and everything that can change it
+            % -- connect, close, a circuit reload, a write that failed, a
+            % read that came back empty, a COM error -- drops the cache
+            % (dropLink_), so a stale "connected" can outlive a dead link by
+            % at most one call.
+            %
+            % See also: hw.Interface.ioReady
+            if isempty(obj.HW)
+                % No device handles at all: never a cached "connected", or a
+                % read that falls back to the stored value would come
+                % straight back here.
+                tf = false;
+                return
+            end
+            if ~isempty(obj.linkTic_) && toc(obj.linkTic_) < obj.PROBE_INTERVAL
+                tf = obj.linkUp_;
+                return
+            end
+            tf = obj.IsConnected;
+            obj.linkUp_ = tf;
+            obj.linkTic_ = tic;
+        end
+
         function connect(obj)
+            obj.dropLink_();
             if obj.IsConnected
                 return
             end
@@ -170,10 +210,12 @@ classdef TDT_RPcox < hw.Interface
             end
 
             obj.ensureUniqueParameterNames();
+            obj.dropLink_();
             obj.ModeState_ = obj.mode;
         end
 
         function disconnect(obj)
+            obj.dropLink_();
             if ~obj.IsConnected
                 return
             end
@@ -197,6 +239,7 @@ classdef TDT_RPcox < hw.Interface
             %
             % Runs before the mode write and before the PsychTimer exists,
             % so nothing can read the device while the circuit is out.
+            obj.dropLink_();
             if ~obj.IsConnected || isempty(obj.HW)
                 return
             end
@@ -209,6 +252,9 @@ classdef TDT_RPcox < hw.Interface
                 module.Fs = obj.HW(idx).RP.GetSFreq;
             end
 
+            % The circuit was out and is back: whatever the probe said before
+            % the reload says nothing about now.
+            obj.dropLink_();
             obj.resetParametersToDesign_();
         end
 
@@ -391,6 +437,7 @@ classdef TDT_RPcox < hw.Interface
             end
 
             obj.Module = modules;
+            obj.dropLink_();
             if ~isempty(modules) && isfield(modules(1).Info, 'ConnectionType') && ~isempty(modules(1).Info.ConnectionType)
                 obj.ConnectionType = localNormalizeConnectionType_(modules(1).Info.ConnectionType);
             end
@@ -469,6 +516,7 @@ classdef TDT_RPcox < hw.Interface
 
 
         function close_interface(obj)
+            obj.dropLink_();
             if isempty(obj.HW)
                 return
             end
@@ -482,6 +530,7 @@ classdef TDT_RPcox < hw.Interface
             end
 
             obj.HW = TDTRP.empty(1, 0);
+            obj.dropLink_();
         end
 
     end
@@ -537,7 +586,7 @@ classdef TDT_RPcox < hw.Interface
                 P = obj.find_parameter(name);
             end
 
-            if ~obj.IsConnected || isempty(obj.HW)
+            if ~obj.ioReady() || isempty(obj.HW)
                 t = now;
                 return
             end
@@ -553,6 +602,7 @@ classdef TDT_RPcox < hw.Interface
             % used to name an undefined variable, so either one threw
             % "Unrecognized function or variable 'module'" instead of this.
             if ~e
+                obj.dropLink_();
                 error('hw:TDT_RPcox:TriggerFailed', ...
                     'Unable to trigger "%s" on module "%s": writing 1 to the tag failed.', ...
                     trig, P.Module.Label);
@@ -571,6 +621,7 @@ classdef TDT_RPcox < hw.Interface
                     vprintf(3,'Triggered "%s"',P.Name)
                 end
             else
+                obj.dropLink_();
                 vprintf(0,1,'Triggered "%s" but could not reset it to 0 on module "%s"; the tag may still be high', ...
                     trig, P.Module.Label)
             end
@@ -584,7 +635,7 @@ classdef TDT_RPcox < hw.Interface
         % returns TRUE if successful, FALSE otherwise
         function e = set_parameter(obj,name,value)
 
-            if ~obj.IsConnected || isempty(obj.HW)
+            if ~obj.ioReady() || isempty(obj.HW)
                 e = true;
                 return
             end
@@ -633,6 +684,9 @@ classdef TDT_RPcox < hw.Interface
                         vprintf(4,'Updated parameter: %s = %s',p.Name,p.formatValue(v))
                     end
                 else
+                    % A write the device refused may mean the link is gone:
+                    % make the next call ask.
+                    obj.dropLink_();
                     vprintf(0,1,'Failed to write value to "%s"',p.Name)
                 end
             end
@@ -663,7 +717,7 @@ classdef TDT_RPcox < hw.Interface
                     silenceParameterNotFound=options.silenceParameterNotFound);
             end
 
-            if ~obj.IsConnected || isempty(obj.HW)
+            if ~obj.ioReady() || isempty(obj.HW)
                 value = cell(size(P));
                 for i = 1:length(P)
                     value{i} = P(i).Value;
@@ -676,14 +730,26 @@ classdef TDT_RPcox < hw.Interface
                 end
                 return
             end
-            
-            value = cell(size(P));
-            for i = 1:length(P)
-                p = P(i);
-                parameterName = obj.getHardwareParameterName(p);
-                hwHandle = obj.HW(p.Module.Index);
 
-                value{i} = hwHandle.read(parameterName);
+            value = cell(size(P));
+            try
+                for i = 1:length(P)
+                    p = P(i);
+                    parameterName = obj.getHardwareParameterName(p);
+                    hwHandle = obj.HW(p.Module.Index);
+
+                    value{i} = hwHandle.read(parameterName);
+
+                    % A tag that reads back empty is a tag the device did
+                    % not answer for; the link may be gone, so the next call
+                    % asks instead of trusting the cached probe.
+                    if isempty(value{i})
+                        obj.dropLink_();
+                    end
+                end
+            catch ME
+                obj.dropLink_();
+                rethrow(ME)
             end
 
 
@@ -748,8 +814,15 @@ classdef TDT_RPcox < hw.Interface
             end
         end
 
+        function dropLink_(obj)
+            % Forget the cached connection probe, so the next ioReady asks
+            % the device.
+            obj.linkTic_ = [];
+        end
+
         function applyModeState_(obj, mode)
             obj.ModeState_ = mode;
+            obj.dropLink_();
             if ~obj.IsConnected || isempty(obj.HW)
                 return
             end
@@ -759,11 +832,12 @@ classdef TDT_RPcox < hw.Interface
             else
                 obj.HW.halt;
             end
+            obj.dropLink_();
             vprintf(2,'HW mode: %s',char(obj.queryModeState_()))
         end
 
         function mode = queryModeState_(obj)
-            if ~obj.IsConnected || isempty(obj.HW)
+            if ~obj.ioReady() || isempty(obj.HW)
                 mode = obj.ModeState_;
                 return
             end

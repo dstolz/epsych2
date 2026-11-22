@@ -135,6 +135,13 @@ classdef Parameter < matlab.mixin.SetGet
         % through hostValue() and costs the device nothing.
         HostValue_ = []
         HostValueKnown_ (1,1) logical = false
+
+        % What kind of Parent this is, resolved once: get.Value used to ask
+        % isa() and isprop() of it on every read. Parent is immutable, so
+        % the answer cannot change. -1 = not resolved yet (also what an
+        % object loaded from a MAT file starts with, since the constructor
+        % does not run for it); see parentKind_.
+        ParentKind_ (1,1) double = -1
     end
 
     properties (Dependent)
@@ -273,8 +280,13 @@ classdef Parameter < matlab.mixin.SetGet
             % samples in a buffer, at best — so a hardware read would return
             % that derived data, not the stimulus. The object is host-side
             % state; this parameter is where it lives.
-            if isequal(obj.Type,'StimType') || isa(obj.Parent,'hw.Software') ...
-                    || (isprop(obj.Parent, 'IsConnected') && ~obj.Parent.IsConnected)
+            %
+            % So does a parameter of hw.Software, and of any backend that is
+            % not connected. The connection question goes to the backend's
+            % ioReady, which may answer from a short-lived cache: asked of
+            % IsConnected here and again inside get_parameter, it was two
+            % device round trips on hw.TDT_RPcox before the read itself.
+            if isequal(obj.Type,'StimType') || ~obj.readsDevice_()
                 v = obj.Value;
             else
                 try
@@ -595,6 +607,42 @@ classdef Parameter < matlab.mixin.SetGet
     end
 
     methods (Access = private)
+        function tf = readsDevice_(obj)
+            % tf = readsDevice_(obj)
+            % True when a read of Value should go to the backend rather than
+            % be served from the stored value: the parent is not software
+            % and reports itself ready for I/O.
+            k = obj.ParentKind_;
+            if k < 0
+                k = obj.resolveParentKind_();
+            end
+            switch k
+                case 1      % an hw.Interface: its hot-path connection check
+                    tf = obj.Parent.ioReady();
+                case 2      % some other object that reports IsConnected
+                    tf = obj.Parent.IsConnected;
+                case 3      % no way to ask; treat as connected, as before
+                    tf = true;
+                otherwise   % 0: hw.Software keeps its values host-side
+                    tf = false;
+            end
+        end
+
+        function k = resolveParentKind_(obj)
+            % 0 software, 1 hw.Interface, 2 other with IsConnected, 3 other
+            P = obj.Parent;
+            if isa(P, 'hw.Software')
+                k = 0;
+            elseif isa(P, 'hw.Interface')
+                k = 1;
+            elseif isprop(P, 'IsConnected')
+                k = 2;
+            else
+                k = 3;
+            end
+            obj.ParentKind_ = k;
+        end
+
         function validateStimTypeValue_(obj, value)
             % Enforce that a 'StimType' parameter only ever holds a stimulus object.
             if isequal(obj.Type, 'StimType') && ~(isempty(value) || isa(value,'stimgen.StimType'))

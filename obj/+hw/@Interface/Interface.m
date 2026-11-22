@@ -193,6 +193,28 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             % for host-side parameter values.
         end
 
+        % ioReady - Connection check for the parameter I/O path
+        function tf = ioReady(obj)
+            % tf = ioReady(obj)
+            % Whether a parameter read or write should go to the device --
+            % the check hw.Parameter.get.Value makes before every read, and
+            % the one a backend makes at the top of get_parameter,
+            % set_parameter and trigger.
+            %
+            % IsConnected is the TRUTH and stays live: connect, connect
+            % recovery, the self-test and the benchmark ask it. This is the
+            % hot-path question, and a backend whose truth costs a device
+            % round trip may answer it from a short-lived cache. On
+            % hw.TDT_RPcox the probe is a GetStatus COM call per module, and
+            % a single parameter read used to make it twice.
+            %
+            % The default is IsConnected itself, so a backend that does not
+            % override this behaves exactly as before. An override must be
+            % invalidated by everything that can change the answer: connect,
+            % disconnect, a session reset, a failed read or write.
+            tf = obj.IsConnected;
+        end
+
         % displayLabel - Human-readable name for this backend, for operator messages
         function label = displayLabel(obj)
             % label = displayLabel(obj)

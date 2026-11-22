@@ -20,10 +20,23 @@ switch COMMAND
     case {"Record","Preview"}
         drawnow
 
-        % Set process priority to high for this MATLAB instance only
-        [~,~] = dos(sprintf('wmic process where processid="%d" CALL setpriority "high priority"', feature('getpid')));
+        % High priority for this MATLAB process only, through .NET. It was a
+        % wmic command until 2026-11: wmic is gone from current Windows and
+        % dos() reported nothing, so sessions had been running at Normal
+        % priority with no sign of it.
+        self.raisePriority_();
 
         vprintf(0,'%s',repmat('~',1,50))
+
+        % The first Run after MATLAB starts rehearses a few trial boundaries
+        % on a software-only session, so the first real boundaries are not
+        % the first time that code runs (epsych.warmUp). Before anything of
+        % this session exists, and a no-op from the second Run on.
+        if epsych.warmUp(Query = true)
+            self.setStatus('Warming up (first run since MATLAB started)...')
+            drawnow
+            epsych.warmUp();
+        end
 
         if COMMAND == "Preview"
             self.setStatus('Preparing preview (test run; no data will be saved)...')

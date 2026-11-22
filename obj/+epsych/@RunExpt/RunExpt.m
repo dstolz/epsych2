@@ -615,6 +615,28 @@ classdef RunExpt < handle
         promptForDataPath_(self)                            % Ask for the default data directory when the DataPath preference was never set
         txt = issueEnvironmentText_(self)                   % Build the Environment block of a GitHub bug report
 
+        function raisePriority_(~)
+            % raisePriority_(self)
+            % Put this MATLAB process at High priority for the session, so a
+            % busy desktop does not take the trial loop's thread. Windows
+            % only; High needs no elevation (Realtime would). It is left
+            % raised afterwards, as the wmic call it replaces left it.
+            %
+            % Failure is reported and never fatal: priority is a courtesy
+            % from the operating system, not something a session depends on.
+            if ~ispc, return, end
+            try
+                proc = System.Diagnostics.Process.GetCurrentProcess();
+                high = System.Diagnostics.ProcessPriorityClass.High;
+                if proc.PriorityClass ~= high
+                    proc.PriorityClass = high;
+                    vprintf(2, 'MATLAB process priority raised to High for the session')
+                end
+            catch ME
+                vprintf(0, 1, 'The MATLAB process priority could not be raised: %s', ME.message)
+            end
+        end
+
         function onCommand(self, hObj)
             % Adapts menu item callbacks; forwards the item's text label.
             self.dispatchCommand_(string(hObj.Text));

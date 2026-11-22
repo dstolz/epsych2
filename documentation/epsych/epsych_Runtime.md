@@ -42,6 +42,9 @@ Primary method files:
 | `DataFile`, `TempDataDir`, `DefaultDataPath` | Crash-recovery file paths and default data directory. |
 | `Journal` | Per-subject [`epsych.TrialJournal`](epsych_TrialJournal.md); the append-only file each completed trial is written to. |
 | `StartTime` | Session start `datetime`. |
+| `TickStats` | An [`epsych.TickStats`](epsych_TickStats.md) timing the trial loop, or empty (the default). `RunExpt` creates one at Run when preference `EPsych/TickStats` is true. |
+| `RecordBuffers` | `true` (default): `Buffer` and `Coefficient Buffer` parameters are read into every trial record. `false` leaves them out of the trial-end read and the record. Set before the run starts. |
+| `RecordStimulusSettings` | `false` (default): a `StimType` value is recorded as the live stimulus object. `true` records `stimgen.StimType.toStruct` instead — the settings, without the samples. Set before the run starts. |
 
 Note: `epsych.Runtime` subclasses `dynamicprops`, so some workflows attach extra properties at runtime — for example `readParameters` adds a `Phase` property that logs which phase files were loaded and when.
 
@@ -152,7 +155,28 @@ Per subject, in order:
 1. fire `TRIGGERS.ResetTrig` so hardware returns to a known state
 2. write the selected trial row's values into the writable parameters — only parameters whose `Access` is not `'Read'` **and** whose `UpdateEveryTrial` flag is true are written. Parameters flagged `SetOnce` (the default for `Coefficient Buffer` types) join the very first dispatch of the session only, so their value reaches the hardware once and is then left alone; parameters with both flags false are never written by the per-trial dispatch
 3. fire `TRIGGERS.NewTrial`
-4. broadcast the `NewTrial` event with an `epsych.TrialsData` payload
+4. run the display work that was deferred while the trial was being prepared (`EVENTS.flushDeferred`; nothing unless the session opted in — see [Event_Notifications.md](Event_Notifications.md#deferring-display-work))
+5. broadcast the `NewTrial` event with an `epsych.TrialsData` payload
+
+From step 1 to the end of step 3 every interface's `InDispatch` is true, and
+one trace record lists what each parameter was given. `dispatchNextTrial(i,
+AllowSkip=true)` — which only the trial loop passes — lets an interface with
+`SkipUnchangedWrites` on leave out a write the device was just read back
+holding; the first dispatch of a run, a regenerated trial and every other
+caller write everything.
+
+### trialRecord
+
+```matlab
+data = RUNTIME.trialRecord()
+```
+
+The trial-end read: a struct of every readable parameter's value, keyed by
+valid name, read with one backend call per interface (`hw.ReadPlan`). With
+the defaults it is `all_parameters(Access='Read', asStruct=true,
+valueOnly=true)` exactly. `RecordBuffers = false` and
+`RecordStimulusSettings = true` change what it reads and returns; see
+[Runtime_Performance.md](../overviews/Runtime_Performance.md#what-a-trial-record-holds).
 
 ## Phase persistence (phases are protocols)
 

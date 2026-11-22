@@ -123,8 +123,37 @@ order, so **name them in `register`** if their order in `build` might change.
 | `onNewData(obj, src, event)` | Every `NewData` event. |
 | `onModeChange(obj, src, event)` | Every `ModeChange`; `event.NewMode` is an `hw.DeviceState`. The base stops registered `Parameter_Monitor` polling on `Stop` before calling this hook. |
 | `onFirstTrial(obj, src, event)` | Exactly once, at the first `NewTrial`, after deferred closures run. |
+| `tf = deferDisplayWork(obj)` | Once, in the constructor. Return `true` to have the session's displays draw **after** the next trial has been dispatched instead of before it (default `false`). See below. |
 
 Hook errors are caught and logged with `vprintf(0,1,ME)` so a display bug never kills the event chain.
+
+### Drawing after the trigger (`deferDisplayWork`)
+
+A trial's data reaches every display between that trial ending and the next
+one starting, so a history table and a few plots redrawn there is tens of
+milliseconds the subject waits through on every trial. A GUI whose
+`deferDisplayWork` returns `true` asks the session's `epsych.EventHub` to hold
+the stock displays' drawing until the `NewTrial` pulse has gone out; it then
+runs in the same timer tick, in the same order, before the `NewTrial` event.
+
+```matlab
+methods (Access = protected)
+    function tf = deferDisplayWork(~)
+        tf = true;
+    end
+end
+```
+
+Nothing the next trial depends on moves: every analysis object still
+recomputes inside `NewData`, `onNewData` still runs there, and so does
+`gui.AdaptiveTraining`'s step. It is off by default because of the one thing
+that does change: code in `onNewData` (or any other `NewData` listener) that
+**reads a display** — a table's `Data`, a line's `YData` — now sees the
+previous trial's drawing. Read the analysis object instead, or leave it off.
+
+It is never switched on in a review. The rig preference
+`EPsych/DeferDisplays` turns it on for every session whatever the GUI. See
+[Event_Notifications.md](../epsych/Event_Notifications.md#deferring-display-work).
 
 ## Placing components
 

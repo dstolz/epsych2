@@ -178,10 +178,33 @@ verbosity 3:
   edge that fails is logged, since the edge did fire. `trigger` returns a
   datenum, which is what `hw.Parameter.lastUpdated` stores.
 
-Every parameter call is one HTTP round trip. Reading a 100 000-sample
-buffer at trial completion, as `ep_TimerFcn_RunTime` does for every readable
-parameter, costs a JSON transfer of that size per trial; mark a large
-read-only buffer invisible if a session does not need it in the data file.
+Every parameter call is one HTTP round trip, and the backend keeps them to
+one each:
+
+- A **scalar read** is a single GET. The vendor client's `getParameterValue`
+  asks the server for its mode as well whenever the value comes back 0 — the
+  normal answer for a `TrialComplete` flag polled every 10 ms — so where the
+  client exposes `sendGet` the backend calls that directly.
+- A **mode read** is answered from the last one for 0.1 s (`MODE_INTERVAL`).
+  A mode write records the mode Synapse actually reached, and closing the
+  interface drops it.
+- An **unchanged stimulus** is not uploaded again
+  (`hw.Interface.SkipUnchangedStimulus`, on by default). The backend forgets
+  what it sent on every mode write — Idle unloads the circuit — on close, on
+  a refused transfer, and on any other write to the tag.
+- With `SkipUnchangedWrites` on (off by default), a scalar the trial-end
+  sweep read back is not written again in the dispatch that follows when the
+  two agree in single precision. See
+  [Runtime_Performance.md](../overviews/Runtime_Performance.md).
+
+Reading a 100 000-sample buffer at trial completion, as `ep_TimerFcn_RunTime`
+does for every readable parameter, costs a JSON transfer of that size per
+trial. Mark a large read-only buffer invisible, or set
+`RUNTIME.RecordBuffers = false`, if a session does not need it in the data
+file.
+
+None of the above has been run against a live Synapse; the mock
+(`tmp/SynapseAPI_Mock`) is the proof.
 
 ## Modes
 
@@ -195,7 +218,8 @@ while the change carries on, so the request's return is not the answer:
 the backend **polls** for the target mode, every 0.25 s up to
 `ModeTimeout` (20 s by default, settable), and only then reports
 `hw:TDT_Synapse:ModeRejected`, naming the mode Synapse is in. Reading
-`mode` asks the server. `ExperimentInfo.block` is read on entering Preview
+`mode` asks the server at most once per 0.1 s; in between it answers from
+the last reply. `ExperimentInfo.block` is read on entering Preview
 or Record, since a block exists only from then on.
 
 The session's own mode writes work out as: connect leaves Synapse in

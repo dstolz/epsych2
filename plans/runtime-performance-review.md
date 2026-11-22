@@ -3,6 +3,13 @@
 2026-11-21, against `master` at `6ad145d8`. A review, not a change: nothing in the
 repository was modified and no fix below has been built or tested.
 
+> **Since built.** Everything from Step 0 to R10 is implemented on branch
+> `perf/runtime-review`; see [Implementation status](#implementation-status) at
+> the end for what was built, what the measurements corrected in this review,
+> and what was left. The text between here and there is the review as written.
+> The settings it led to are described in
+> [Runtime_Performance.md](../documentation/overviews/Runtime_Performance.md).
+
 ## Summary
 
 A trial boundary on a TDT rig with the lab's behavior GUI currently carries three
@@ -484,3 +491,100 @@ session is using the MATLAB thread:
 - **On the rig**: `hw.benchmarkIO` before and after R4; one Preview session with
   tick statistics on, comparing boundary and tick durations; scope the
   ResetTrig/NewTrial pulses once after R3.
+
+## Implementation status
+
+Built on branch `perf/runtime-review` (2026-11-21), one commit per fix. Tested
+headlessly against a counting stand-in for the device
+(`tmp/CountingProbeInterface.m`, `tmp/bench_trial_boundary.m`), the Synapse and
+NE-1000 mocks, and on an RZ6 over the GB link running the repository's benchmark
+circuit, including the real trial loop.
+
+### What was built
+
+| | Change | Default | Standing proof |
+|---|---|---|---|
+| Step 0 | `epsych.TickStats` (preference `EPsych/TickStats`), `tmp/bench_trial_boundary.m` | off | the benchmark itself |
+| R1 | One trace record per dispatch; backends leave per-write records out while `hw.Interface.InDispatch` | on | `smoke_test_dispatch_order` |
+| R2 | An Expression reads only the siblings it names; the dot-operator gap in the dependency scan fixed | on | `smoke_test_dispatch_order` groups 2b, 2c |
+| R3 | `hw.Interface.holdPulse` (a busy wait) in the TDT triggers; `drawnow` removed from the `NewData` and commit paths | on | benchmark yield count |
+| R4 | `hw.Interface.ioReady`; `hw.TDT_RPcox` caches its `GetStatus` probe for 0.25 s | on | `smoke_test_readplan`, `hw_benchmark_io` |
+| R5 | Mode cached for 0.1 s on both TDT backends; Synapse scalar reads without the vendor's second request; `RunExpt.StopOnIdleHardware` | watchdog off for several interfaces, as it effectively was | `smoke_test_idle_watchdog` |
+| R6 | `Parameter_Control` skips the device read-back when the host value did not change; one shared flash timer | on | `smoke_test_pending_edit_survives_dispatch` group 9 |
+| R7 | `hw.ReadPlan`: the trial-end sweep and `Parameter_Monitor` read one batch per interface | on | `smoke_test_readplan` |
+| R8 | `epsych.EventHub.defer`: displays draw after the `NewTrial` pulse | opt-in (`gui.BehaviorGUI.deferDisplayWork`, preference `EPsych/DeferDisplays`); on for the lab's appetitive GUI | `smoke_test_eventhub_deferral` |
+| R9 | `hw.Interface.SkipUnchangedStimulus`: an unchanged `StimType` waveform is not uploaded again | **on** | `smoke_test_stimulus_upload_skip` |
+| R10 | `hw.Interface.SkipUnchangedWrites`; `hw.NE1000.SettingsCacheInterval` | opt-in (preference `EPsych/SkipUnchangedWrites`) | `smoke_test_skip_unchanged_writes`, `smoke_test_ne1000_settings_cache` |
+| Smaller | Display-side guards in ParameterScatter and the Staircase plot; each distinct colour converted once | on | `smoke_test_incremental_perf` (a measurement) |
+| Smaller | `epsych.Runtime.trialRecord`, `RecordBuffers`, `RecordStimulusSettings` | both opt-in | `smoke_test_trial_record` |
+
+### What measurement corrected
+
+- **Timers do not nest.** Code in a timer callback is never interrupted by
+  another timer, not even at a `pause` or `drawnow` (R2024b, `-batch` and
+  interactive). A2's "any other timer's callback runs inside the ResetTrig
+  pulse" was wrong. What `pause` does do is force every pending graphics
+  update to render there: 24 ms for one table change against 1 ms for a busy
+  wait. R3 stands, for that reason alone. It also means a benchmark has to
+  drive the loop from inside a timer callback; from a script the measured
+  boundary is interrupted by whatever timers are running.
+- **The multi-interface watchdog cost nothing and never fired (B1).**
+  `get(heterogeneousArray,'mode')` returns a cell of `[]` and calls no
+  backend's `get.mode`, so on a rig with two or more interfaces the idle check
+  made no device call and could not be true. R5 keeps that as the default and
+  makes "stop when hardware goes idle" an explicit choice.
+- **The device is fast; MATLAB is what a call costs.** On the RZ6 over GB a
+  raw RPcoX `GetStatus` is 19 µs, `ReadTagVEX` 40 µs, `SetTagVal` 42 µs, while
+  `P.Value` was 362 µs and `P.Value = x` 598 µs. The findings' call counts
+  rank the costs correctly but understate how much of each is host-side.
+- **The largest single costs were not in the Summary.** A 1 s `StimType`
+  stimulus uploaded every trial is 278 ms of the boundary; a visible
+  million-sample buffer tag in the trial record is 196 ms plus 7.8 MB of
+  journal. Both were listed under A7 and A3 without a size.
+- **A readable `StimType` does put the live object in every record** (the "to
+  check" item): the same handle in every trial, and 0.9 MB of journal per
+  trial for a 1 s stimulus.
+- **Half the staircase redraw was colour conversion.** `hex2rgb` over every
+  trial's colour string on every trial: 16 of 32 ms at 1000 trials.
+
+### Measured after
+
+The real trial loop on the RZ6 (benchmark circuit, software triggers, median
+wait per trial): a recorded million-sample buffer 230 ms, without it 6.5 ms; a
+1 s stimulus uploaded every trial 291 ms, unchanged upload skipped 15 ms, with
+unchanged writes skipped and the stimulus recorded as settings 12 ms. Through
+`hw.Parameter` on that device: a read 362 → 122 µs, a mode read 122 → under
+1 µs, an idle tick 546 → 176 µs.
+
+The benchmark with 20 controls at 200 µs per call: 470 device calls per trial
+→ 112 (72 with `SkipUnchangedWrites`), 56 log records → 6, a 180 ms wait →
+47 ms. Per appended trial, the scatter 30 → 11 ms and the staircase plot
+28 → 12 ms at 1000 trials.
+
+### Not done
+
+- **One decode per trial (C3).** Profiled at about 1 ms per analysis object
+  per trial at 1000 trials (`Psych.perTrialNumeric_`, already vectorized, is
+  0.47 ms a call, and the Staircase already memoizes within a refresh). A
+  cache shared across objects needs an identity for "the same DATA" that a
+  struct array does not have; not worth a wrong-trial hazard for a
+  millisecond.
+- **One sampler for display polling (C1, C2, C5).** After R4 and R7 a monitor
+  poll is one batch per interface with no probe of its own (two parameters:
+  180 µs on the RZ6, against 237 µs read one at a time, and 724 µs before).
+  A shared sampler would save only the reads a pop-out duplicates.
+- **Compile each expression once.** As under *Considered and not
+  recommended*: an expression now costs 0.4–0.7 ms over a plain write, of
+  which the device read of each parameter it names is 0.12 ms and cannot go
+  without changing what the expression sees.
+- **OnlinePlot** keeps its own read plan rather than `hw.ReadPlan`; it was
+  already batched.
+- **The redesigns** (a device-side trial record, latch-on-NewTrial
+  parameters) need RPvds circuit changes and were not attempted.
+- **Not validated on hardware:** `hw.TDT_Synapse` (mock only), `hw.NE1000`
+  (mock only), a full `epsych.RunExpt` session with the lab's protocol and
+  behavior GUI, and the trigger pulse width on a scope. The benchmark circuit
+  has no trial triggers, so on the RZ6 those three lived on the software
+  module.
+- **Pre-existing failures**, unchanged by this work: `smoke_test_expression_check`
+  and two checks of `smoke_test_staircase_weighted_toggle`.

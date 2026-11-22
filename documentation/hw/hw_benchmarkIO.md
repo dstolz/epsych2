@@ -60,9 +60,9 @@ into a backend method that does almost nothing:
 
 | | `hw.Software` (the twin) | `hw.TDT_RPcox`, for comparison |
 |---|---|---|
-| `set_parameter` | resolves a name (by-name path only), returns 1. Writes nothing and logs nothing | `IsConnected` probe (a `GetStatus` COM call per module), name lookup (by-name path), `TDTRP.write` (tag-size check, the RPcoX call), a level-4 `vprintf` record, which the log file takes by default |
-| `get_parameter` | returns `NaN`. Does not resolve a name, and moves no data | `IsConnected` probe, name lookup (by-name path), whole-tag `ReadTagVEX` |
-| `trigger` | returns `now` | `IsConnected` probe, two writes and a 1 ms hold (`hw.Interface.holdPulse`, a busy wait: a `pause` there would render every pending graphics update inside the pulse) |
+| `set_parameter` | resolves a name (by-name path only), returns 1. Writes nothing and logs nothing | `ioReady` (the `GetStatus` probe per module, taken at most once per 0.25 s), name lookup (by-name path), `TDTRP.write` (tag-size check, the RPcoX call), a level-4 `vprintf` record, which the log file takes by default (left out inside a trial dispatch, where the dispatcher writes one record for the whole trial) |
+| `get_parameter` | returns `NaN`. Does not resolve a name, and moves no data | `ioReady`, name lookup (by-name path), whole-tag `ReadTagVEX` |
+| `trigger` | returns `now` | `ioReady`, two writes and a 1 ms hold (`hw.Interface.holdPulse`, a busy wait: a `pause` there would render every pending graphics update inside the pulse) |
 
 So `AboveFloor_s` is the transport **plus** the connection probe, the log
 record and the value formatting the real backend does and the twin does not.
@@ -451,8 +451,9 @@ matrix runs. There are no buffers.
   everything by default. That cost is inside every write time. See *Running it*.
 - **The runtime's wrappers are not included.** A session writes through
   `hw.Parameter.set.Value`, which adds randomization, `Expression`, clamping and
-  the update callbacks. It reads through `get.Value`, which adds one
-  `IsConnected` probe (a `GetStatus` COM call per module on `hw.TDT_RPcox`) and a
+  the update callbacks. It reads through `get.Value`, which asks the backend's
+  `ioReady` (on `hw.TDT_RPcox` a `GetStatus` COM call per module, at most once
+  per 0.25 s; it used to be two probes per read) and a
   `double` conversion. Those costs are EPsych's and are small next to a buffer
   transfer. They are not in these numbers.
 - **4 bytes (32 bits) per sample** is assumed for `MBPerSec` and `MbitPerSec`,

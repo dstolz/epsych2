@@ -1685,6 +1685,104 @@ The epsych.EventHub event broadcaster is the primary communication channel:
 
 Subscribers (e.g., psychophysics.Psych subclasses, gui.components.OnlinePlot) listen to these events and update state.
 
+### The Trial Boundary & Runtime Performance
+
+Everything at runtime shares ONE MATLAB thread, and what MATLAB controls is the
+**trial boundary**: the time from one trial ending to the `NewTrial` pulse of
+the next, which the subject waits through. In `ep_TimerFcn_RunTime` that is
+sweep (`Runtime.trialRecord`) → journal → `selector.onComplete` →
+`notify('NewData')` → optional recompile → `selectNext` →
+`Runtime.dispatchNextTrial` (ResetTrig pulse, parameter writes, NewTrial
+pulse, deferred display work, `notify('NewTrial')`). The 2026-11 review
+(plans/runtime-performance-review.md) and the settings it led to are in
+documentation/overviews/Runtime_Performance.md. What a reader would otherwise
+re-derive:
+
+- **Measure from inside a timer callback.** Code in a timer callback is never
+  interrupted by another timer, not even at a `pause` or `drawnow`; top-level
+  code is interrupted between statements. `tmp/bench_trial_boundary.m` drives
+  the real loop from a singleShot timer for that reason, against
+  `tmp/CountingProbeInterface.m`, which COUNTS device calls so the answer does
+  not depend on the machine. `epsych.TickStats` (preference
+  `EPsych/TickStats`) times the phases of a real session and reports at Stop.
+- **No `pause` or `drawnow` inside the boundary.** It does not let other
+  timers in, but it renders every pending graphics update there (24 ms
+  measured for one table change). Triggers hold their pulse with
+  `hw.Interface.holdPulse`, a busy wait; the benchmark counts yields through
+  `tmp/.yieldspy`, whose folder name is dotted so `epsych_startup`'s
+  `genpath` never puts shadows of `pause`/`drawnow` on a session's path.
+- **The device is fast; MATLAB is what a call costs.** On an RZ6 over GB a raw
+  RPcoX call is 20-40 us while `P.Value` was 362 us, most of it connection
+  probes. `hw.Interface.ioReady` is the hot-path connection check (concrete,
+  default `IsConnected`); `hw.TDT_RPcox` answers it from a 0.25 s cache that
+  `dropLink_` clears on everything that can change the answer, and both TDT
+  backends cache `mode` for 0.1 s. `IsConnected` stays live.
+- **`hw.Parameter.hostValue`** is what `set.Value` last stored, with no device
+  I/O. Use it to ask "did the host change this?" (a control deciding whether
+  to refresh, a trace record), never "what does the device hold?": a float32
+  tag, an integer tag and a pump's four digits all hold something else.
+  `gui.components.Parameter_Control` uses it only to skip the read-back for a
+  write that changed nothing.
+- **`hw.Interface.InDispatch`** is true from the ResetTrig pulse to the end of
+  the NewTrial pulse. Backends leave their per-write success record out while
+  it is set, because `dispatchNextTrial` writes ONE trace record for the
+  trial; with the log taking every level by default there were two records
+  per parameter per trial.
+- **`hw.ReadPlan`** reads a parameter list with one `get_parameter(array)` per
+  interface and returns exactly what `P(k).Value` returns. The trial-end
+  sweep and `gui.components.Parameter_Monitor` use it; write-only, `StimType`
+  and software parameters are served locally, and a backend that refuses an
+  array (a signature error, never a read failure) is demoted for good.
+- **An Expression reads only the siblings its text names** (a plain identifier
+  scan in `hw.Parameter.resolveExpressionContext`). It still reads them from
+  the DEVICE; using the host value would change what the expression sees
+  wherever a value is coerced.
+- **Deferred display work** (`epsych.EventHub.defer`/`deferFor`): a display
+  hands its drawing to the hub, which runs it at once unless a trial boundary
+  is open, and then right after the NewTrial pulse, before the NewTrial
+  event. Opt-in per session (`EventHub.DeferralEnabled`, set by
+  `gui.BehaviorGUI.deferDisplayWork` or preference `EPsych/DeferDisplays`).
+  ANALYSIS IS NEVER DEFERRED: a Psych recomputes inside NewData, where the
+  next trial's selection can depend on it. What changes when it is on is that
+  a NewData listener reading a DISPLAY sees the previous trial's drawing.
+- **`hw.Interface.SkipUnchangedStimulus`** (default on): a `StimType` is
+  regenerated on every dispatch, but the upload is left out when the tag was
+  last sent the same samples in single precision (278 ms per second of
+  stimulus on the RZ6). The backend forgets what it sent on connect, the
+  circuit reload in `resetSession`, a mode write, a refused write and any
+  other write to the tag.
+- **`hw.Interface.SkipUnchangedWrites`** (default OFF, preference
+  `EPsych/SkipUnchangedWrites`): the trial loop's dispatch leaves out a write
+  the device was read back holding since the trial ended. Evidence is
+  recorded by the BACKEND for a value the device itself returned
+  (`hw.Parameter.noteDeviceRead`) under `DeviceEpoch`, which
+  `ep_TimerFcn_RunTime` bumps before its sweep so nothing older can excuse a
+  write; `holdsValue` (concrete, default false) is the backend's judgement of
+  equality and doubles as the capability query. Only
+  `dispatchNextTrial(i, AllowSkip=true)` — the trial loop — may skip, so the
+  first dispatch, a regenerated trial and every operator write are sent. It
+  rests on nothing but the host changing a parameter between the trial-end
+  read and the dispatch, which is why it is opt-in.
+- **What a trial record holds** (`Runtime.RecordBuffers`,
+  `RecordStimulusSettings`, both default to what was always recorded): a
+  visible buffer tag is read whole into every record, and a readable
+  `StimType` records the LIVE handle object — the same one in every trial, so
+  an earlier record shows the stimulus as it is at save time, and 0.9 MB of
+  journal per trial for a 1 s stimulus. The second setting records
+  `stimgen.StimType.toStruct` instead. Both change a saved file, hence the
+  defaults, and are applied at Run because every record of a session needs
+  the same fields.
+- **The idle watchdog never fired on a multi-interface rig**:
+  `get(heterogeneousArray,'mode')` returns a cell of `[]` and calls no
+  getter. `RunExpt.hardwareIdle` keeps that as the default and makes stopping
+  on idle hardware an explicit choice (`StopOnIdleHardware`). It is NOT
+  rate-limited in RunExpt, because `hw.Bpod`'s `get.mode` is its per-tick
+  byte pump; the TDT backends cache instead.
+- **A display writes a graphics property only when the value changes**, and
+  sets the matching `...Mode` to manual explicitly, since a skipped write no
+  longer flips it (`gui.components.ParameterScatter.setIfChanged_`). And no
+  `vprintf` per trial in a display or an analysis.
+
 ### Program State Machine
 
 NOCONFIG -> CONFIGLOADED -> READY -> RUNNING -> POSTRUN -> STOP
@@ -1867,6 +1965,7 @@ Reference: examples/customgui/, runtime/guis/@ep_GenericGUI/, paradigms/cl_SaveD
 - **Session walkthrough**: documentation/overviews/RunExpt_GUI_Overview.md
 - **Pre-flight self-test**: documentation/overviews/RunExpt_SelfTest.md
 - **Runtime events**: documentation/epsych/Event_Notifications.md
+- **Runtime performance**: documentation/overviews/Runtime_Performance.md
 - **Offline session review**: documentation/epsych/epsych_ReviewSession.md
 - **Logging**: documentation/granary/granary_Logging.md, documentation/helpers/helpers_vprintf.md
 - **Architecture**: documentation/overviews/Architecture_Overview.md

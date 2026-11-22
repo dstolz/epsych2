@@ -470,13 +470,35 @@ Typical pattern:
 ```matlab
 e = backendWrite(P, 1);
 t = now;
-pause(0.001)
+hw.Interface.holdPulse(0.001)
 e = backendWrite(P, 0);
 ```
+
+Hold the pulse with `hw.Interface.holdPulse`, never `pause` or `drawnow`.
+A trigger fires inside the trial boundary, and either of those hands the
+MATLAB thread to the graphics queue: every pending display update renders
+inside the pulse, before the next trial has started (24 ms measured for one
+table change, against the 1 ms asked for).
 
 Keep `trigger()` separate even if the backend technically exposes triggers as
 ordinary writable values. That preserves the semantics expected by
 `hw.Parameter.Trigger()`.
+
+### Keeping the trial boundary short
+
+A backend is called dozens of times between one trial ending and the next
+starting. Each of these is optional — a concrete method or property on
+`hw.Interface` with a default that changes nothing — and each is what
+`hw.TDT_RPcox` does. See
+[Runtime_Performance.md](../overviews/Runtime_Performance.md).
+
+| What | Why |
+|---|---|
+| Override `ioReady()` when your `IsConnected` costs a device call, and answer it from a short-lived cache. Use it at the top of `get_parameter`, `set_parameter` and `trigger`. | `hw.Parameter.get.Value` asks it before every read. `IsConnected` stays the live truth. Drop the cache on connect, close, `resetSession`, and any failed read or write. |
+| Accept an `hw.Parameter` **array** in `get_parameter` and return a cell in the order asked. | `hw.ReadPlan` then reads a whole interface in one call for the trial-end sweep and the parameter monitor. A backend that refuses an array is read one parameter at a time. |
+| Leave a per-write *success* record out while `obj.InDispatch` is true. | The dispatcher logs one record for the whole trial; the log takes every level by default, so a record per write was a `dbstack` and a file write per parameter per trial. Failures are always logged. |
+| If you upload waveforms: `stimulusOnDevice_`, `noteStimulusSent_`, `forgetStimulusSent_`. | `SkipUnchangedStimulus` leaves out the transfer of samples the tag already holds. Forget on anything after which the device may not hold them. |
+| If a write of what the device already holds is a true no-op: override `holdsValue`, call `p.noteDeviceRead(v, obj.DeviceEpoch)` where `get_parameter` has a value the device itself returned, `p.forgetDeviceValue()` in `set_parameter`, and `invalidateDeviceValues()` on connect, close, a reset, a mode change, a refused write. | `SkipUnchangedWrites` (opt-in per interface) then leaves those writes out of the trial loop's dispatch. `holdsValue` defaults to false, so a backend that does none of this never has a write skipped. |
 
 ## 11. Release resources in `close_interface()`
 

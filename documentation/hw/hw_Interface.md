@@ -348,6 +348,52 @@ one it is. A backend that overrides none of them behaves exactly as before.
     and `NaN` cycle usage, with no COM call. Its call strings describe
     `TDTRP.write`/`TDTRP.read` and must change with them.
 
+### `ioReady` / `InDispatch` / `holdPulse`
+
+Three things a backend uses to keep the trial boundary short. All are
+concrete with defaults that change nothing; see
+[Runtime_Performance.md](../overviews/Runtime_Performance.md).
+
+```matlab
+tf = I.ioReady()               % the hot-path connection check
+tf = I.InDispatch              % true while a trial is being dispatched
+hw.Interface.holdPulse(0.001)  % hold a trigger pulse without yielding
+```
+
+- `ioReady` is what `hw.Parameter.get.Value` asks before every read, and what
+  a backend asks at the top of `get_parameter`, `set_parameter` and `trigger`.
+  The default is `IsConnected`. A backend whose `IsConnected` costs a device
+  round trip may answer from a short-lived cache (`hw.TDT_RPcox`: 0.25 s),
+  dropped by everything that can change the answer. `IsConnected` itself
+  stays live.
+- `InDispatch` is set by `epsych.Runtime.dispatchNextTrial` from the ResetTrig
+  pulse to the end of the NewTrial pulse. A backend leaves its per-write
+  success record out while it is true; the dispatcher logs one record for
+  the whole trial.
+- `holdPulse` is a busy wait. A `pause` or `drawnow` in a trigger renders
+  every pending display update inside the pulse.
+
+### `SkipUnchangedStimulus` / `SkipUnchangedWrites` / `holdsValue`
+
+```matlab
+I.SkipUnchangedStimulus = true;    % the default
+I.SkipUnchangedWrites   = false;   % the default
+tf = I.holdsValue(p, deviceValue, value)
+```
+
+- `SkipUnchangedStimulus`: a backend that uploads a `StimType` waveform leaves
+  the transfer out when the tag was last uploaded the same samples.
+  `StimulusUploads` and `StimulusUploadsSkipped` count them. Backends use the
+  protected `stimulusOnDevice_`, `noteStimulusSent_` and `forgetStimulusSent_`.
+- `SkipUnchangedWrites`: in the trial loop's own dispatch, a write of what the
+  device was read back holding since the trial ended is left out
+  (`WritesSkipped` counts them). Off by default.
+- `holdsValue` is the backend's answer to "is writing `value` a no-op, given
+  the device just reported `deviceValue`?". The default is `false`, which
+  also makes it the capability query. A backend that overrides it records
+  its evidence with `p.noteDeviceRead(v, I.DeviceEpoch)` and retires it with
+  `I.invalidateDeviceValues()`.
+
 ### `displayLabel`
 
 ```matlab

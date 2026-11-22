@@ -156,10 +156,37 @@ classdef SubjectRoster < handle
         % stamps. One list, identical field names on both records, so stamping,
         % the commit-time mismatch check, updateMembership, and the dialogs all
         % iterate the same constant. All char except TimerPeriod (double, NaN =
+        % inherit) and the SESSION_FLAG_FIELDS (double: 1, 0, or NaN =
         % inherit).
         SESSION_FIELDS = {'DefaultDataPath','SavingFcn','BehaviorGUI','TimerPeriod', ...
             'TimerStartFcn','TimerRunTimeFcn','TimerStopFcn','TimerErrorFcn', ...
-            'VideoRootDir','IntanRootDir','IntanSettingsFile'}
+            'VideoRootDir','IntanRootDir','IntanSettingsFile', ...
+            'RecordBuffers','RecordStimulusSettings'}
+
+        % The SESSION_FIELDS that are yes/no choices: what a trial record
+        % holds of buffers and of stimuli (epsych.Runtime.RecordBuffers,
+        % RecordStimulusSettings). They are session-level -- one runtime
+        % reads every subject's trial record -- so a batch has to agree on
+        % them like any other session field.
+        %
+        % Stored tri-state as a double, the RecordVideo convention: 1, 0, or
+        % NaN for "not stated", which is the only reading a roster written
+        % before the fields existed can have. Unlike the text fields, "not
+        % stated" here does not mean "leave the session as the last batch
+        % left it": it means the built-in default below, at every commit.
+        % These change what a saved file contains, and a choice one study
+        % made must not ride into the next study's data unasked. So NaN and
+        % the built-in value are the SAME setting, which is how they are
+        % compared (sessionFlagValue) by the commit-time mismatch check and
+        % the manager's Settings column.
+        SESSION_FLAG_FIELDS = {'RecordBuffers','RecordStimulusSettings'}
+
+        % What each flag is when nobody states it. These repeat
+        % epsych.Runtime's own property defaults, which are what a scripted
+        % session gets; tmp/smoke_test_session_record_settings.m holds the
+        % two together.
+        SESSION_FLAG_DEFAULTS = struct('RecordBuffers', true, ...
+            'RecordStimulusSettings', false)
     end
 
     properties (Constant, Access = private)
@@ -278,6 +305,8 @@ classdef SubjectRoster < handle
         id = newId(prefix)
         [tf, why] = isNameSafe(name)
         [v, ok] = recordVideoSetting(value)
+        [v, ok] = sessionFlag(value)
+        tf = sessionFlagValue(field, value)
         s  = emptySubject()
         p  = emptyProject()
         m  = emptyMembership()

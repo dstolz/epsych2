@@ -516,7 +516,7 @@ circuit, including the real trial loop.
 | R9 | `hw.Interface.SkipUnchangedStimulus`: an unchanged `StimType` waveform is not uploaded again | **on** | `smoke_test_stimulus_upload_skip` |
 | R10 | `hw.Interface.SkipUnchangedWrites`; `hw.NE1000.SettingsCacheInterval` | opt-in (preference `EPsych/SkipUnchangedWrites`) | `smoke_test_skip_unchanged_writes`, `smoke_test_ne1000_settings_cache` |
 | Smaller | Display-side guards in ParameterScatter and the Staircase plot; each distinct colour converted once | on | `smoke_test_incremental_perf` (a measurement) |
-| Smaller | `epsych.Runtime.trialRecord`, `RecordBuffers`, `RecordStimulusSettings` | both opt-in | `smoke_test_trial_record` |
+| Smaller | `epsych.Runtime.trialRecord`, `RecordBuffers`, `RecordStimulusSettings` | both opt-in, per study: two checkboxes on the project's Session Defaults tab, carried by each roster membership and recorded in the session's `Info` | `smoke_test_trial_record`, `smoke_test_session_record_settings` |
 
 ### What measurement corrected
 

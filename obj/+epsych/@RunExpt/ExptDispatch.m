@@ -196,22 +196,25 @@ switch COMMAND
         end
 
         % What a trial record holds of buffers and of stimuli
-        % (epsych.Runtime.RecordBuffers, RecordStimulusSettings). Applied
-        % here, before the first trial, because every record of a session
-        % must have the same fields.
-        for rec = ["RecordBuffers", "RecordStimulusSettings"]
-            if ispref('EPsych', char(rec))
-                v = getpref('EPsych', char(rec));
-                if isscalar(v) && (islogical(v) || isnumeric(v))
-                    self.RUNTIME.(rec) = logical(v);
-                end
+        % (epsych.Runtime.RecordBuffers, RecordStimulusSettings). The
+        % study decides: each subject's roster membership carries the two
+        % settings (the project's Session Defaults), and adding subjects
+        % to the session put the agreed values on FUNCS
+        % (epsych.SubjectRoster.assignToSession). Applied here, before the
+        % first trial, because every record of a session must have the
+        % same fields. A FUNCS built by hand without them leaves the
+        % runtime at its own defaults.
+        for rec = string(epsych.SubjectRoster.SESSION_FLAG_FIELDS)
+            if isfield(self.FUNCS, rec) && isscalar(self.FUNCS.(rec)) ...
+                    && (islogical(self.FUNCS.(rec)) || isnumeric(self.FUNCS.(rec)))
+                self.RUNTIME.(rec) = logical(self.FUNCS.(rec));
             end
         end
         if ~self.RUNTIME.RecordBuffers
-            vprintf(1, 'Buffer parameters are left out of the trial record (preference EPsych/RecordBuffers)')
+            vprintf(1, 'Buffer parameters are left out of the trial record (this study''s session settings)')
         end
         if self.RUNTIME.RecordStimulusSettings
-            vprintf(1, 'Stimuli are recorded as their settings, not as objects (preference EPsych/RecordStimulusSettings)')
+            vprintf(1, 'Stimuli are recorded as their settings, not as objects (this study''s session settings)')
         end
 
         % Trial-loop timing is recorded only when asked for (preference

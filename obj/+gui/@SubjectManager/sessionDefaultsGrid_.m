@@ -35,6 +35,9 @@ function S = sessionDefaultsGrid_(self, parent, seed, tagPrefix, options)
 % Every field arrives already filled -- from the value most recently used
 % here, else from the machine's own setting, else the built-in -- because a
 % blank one would silently inherit whatever the last session left behind.
+% The two Trial Record checkboxes are the exception to "most recently
+% used": they open on what the record states, else the built-in default,
+% since what a data file contains should not arrive pre-chosen.
 %
 % See also: gui.SubjectManager.projectDialog_, gui.SubjectManager.membershipDialog_,
 %   epsych.SubjectRoster.updateMembership
@@ -66,7 +69,15 @@ if ~isscalar(vPeriod) || isnan(vPeriod)
     vPeriod = localRecentPeriod(PREFS, 0.01);
 end
 
-nRows = 7 + options.IncludeProtocol;
+% The two yes/no settings open on what the record states, else on the
+% built-in default. Deliberately no most-recently-used value, unlike every
+% field above: these decide what a data file contains, and one study's
+% choice must not arrive pre-ticked in the next study's dialog.
+vRecBuffers = epsych.SubjectRoster.sessionFlagValue('RecordBuffers', seed.RecordBuffers);
+vRecStim    = epsych.SubjectRoster.sessionFlagValue('RecordStimulusSettings', ...
+    seed.RecordStimulusSettings);
+
+nRows = 9 + options.IncludeProtocol;
 gs = uigridlayout(parent, [nRows 3]);
 gs.RowHeight = repmat({28}, 1, nRows);
 gs.Scrollable = 'on';
@@ -203,6 +214,34 @@ btnIntanSet = uibutton(gs, 'Text','Browse...', ...
         {'*.xml','RHX Settings (*.xml)'; '*.*','All Files (*.*)'}));
 btnIntanSet.Layout.Row = row; btnIntanSet.Layout.Column = 3;
 
+% What a trial record holds of the two kinds of value that are big. Checkboxes
+% spanning the value and button columns: there is nothing to browse for, and
+% the sentence IS the label.
+row = row + 1;
+localLabel(gs, row, 'Trial Record:');
+cbRecBuffers = uicheckbox(gs, 'Value', vRecBuffers, ...
+    'Tag',[tagPrefix 'RecordBuffers'], ...
+    'Text','Record buffer parameters in every trial', ...
+    'Tooltip', ['Ticked (the default): every visible buffer tag is read whole into' newline ...
+                'each trial''s record -- megabytes per trial for a long buffer, off the' newline ...
+                'device, into Data and into the recovery journal.' newline ...
+                'Cleared: buffers are not read at trial end and have no field in Data.' newline ...
+                'A buffer plot in the behavior GUI still shows them.']);
+cbRecBuffers.Layout.Row = row; cbRecBuffers.Layout.Column = [2 3];
+
+row = row + 1;
+cbRecStim = uicheckbox(gs, 'Value', vRecStim, ...
+    'Tag',[tagPrefix 'RecordStimulusSettings'], ...
+    'Text','Record a stimulus as its settings, not the stimulus object', ...
+    'Tooltip', ['Cleared (the default): a stimulus parameter is saved as the live' newline ...
+                'stimulus object -- the SAME object in every trial, so earlier trials' newline ...
+                'show the stimulus as it is at save time, and about 1 MB per trial' newline ...
+                'in the recovery journal for a 1 s stimulus.' newline ...
+                'Ticked: each trial saves a struct of the stimulus''s settings as they' newline ...
+                'were for that trial (class, name, every property; no samples).' newline ...
+                'Data(k).Stim.Frequency reads the same either way.']);
+cbRecStim.Layout.Row = row; cbRecStim.Layout.Column = [2 3];
+
 S = struct();
 S.Grid        = gs;
 S.Protocol    = ddProtocol;
@@ -213,6 +252,8 @@ S.Period      = efPeriod;
 S.Video       = ddVideo;
 S.Intan       = ddIntan;
 S.IntanSet    = efIntanSet;
+S.RecordBuffers = cbRecBuffers;
+S.RecordStimulusSettings = cbRecStim;
 S.collect     = @collect;
 S.remember    = @remember;
 
@@ -230,7 +271,9 @@ S.remember    = @remember;
             'TimerPeriod', efPeriod.Value, ...
             'VideoRootDir', strtrim(ddVideo.Value), ...
             'IntanRootDir', strtrim(ddIntan.Value), ...
-            'IntanSettingsFile', strtrim(efIntanSet.Value));
+            'IntanSettingsFile', strtrim(efIntanSet.Value), ...
+            'RecordBuffers', logical(cbRecBuffers.Value), ...
+            'RecordStimulusSettings', logical(cbRecStim.Value));
         if options.IncludeProtocol
             vals.DefaultProtocol = strtrim(ddProtocol.Value);
         end

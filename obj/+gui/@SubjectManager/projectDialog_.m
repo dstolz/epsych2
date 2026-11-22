@@ -11,7 +11,8 @@ function P = projectDialog_(self, seed, options)
 %   seed - struct with Name, Notes, Investigator, IACUCProtocol,
 %          DefaultProtocol, and the SESSION_FIELDS (DefaultDataPath, SavingFcn,
 %          TimerPeriod, VideoRootDir, IntanRootDir, IntanSettingsFile,
-%          BehaviorGUI), plus Links and Archived. The membership's four
+%          BehaviorGUI, RecordBuffers, RecordStimulusSettings), plus Links and
+%          Archived. The membership's four
 %          Timer*Fcn callbacks are read from the seed by neither dialog.
 %
 % Options:
@@ -217,6 +218,8 @@ end
             'IntanRootDir', vals.IntanRootDir, ...
             'IntanSettingsFile', vals.IntanSettingsFile, ...
             'BehaviorGUI', vals.BehaviorGUI, ...
+            'RecordBuffers', vals.RecordBuffers, ...
+            'RecordStimulusSettings', vals.RecordStimulusSettings, ...
             'Archived', cbArchived.Value);
 
         % Assigned, never passed to struct() above: a struct-array value makes

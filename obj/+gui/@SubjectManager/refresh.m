@@ -354,6 +354,13 @@ txt = 'template';
 for f = epsych.SubjectRoster.SESSION_FIELDS
     pv = project.(f{1});
     mv = mrec.(f{1});
+    % A yes/no setting is compared as what it means, as the commit-time
+    % check compares it: "not stated" IS the built-in default, so a member
+    % stamped before the template stated the default is not edited.
+    if any(strcmp(f{1}, epsych.SubjectRoster.SESSION_FLAG_FIELDS))
+        pv = epsych.SubjectRoster.sessionFlagValue(f{1}, pv);
+        mv = epsych.SubjectRoster.sessionFlagValue(f{1}, mv);
+    end
     % Both-empty agrees whatever the shapes: a stamped '' comes back from a
     % MAT round trip as 1x0 while a fresh record holds 0x0, and isequaln
     % alone would flag every untouched membership as edited.

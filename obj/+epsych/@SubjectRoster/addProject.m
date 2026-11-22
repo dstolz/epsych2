@@ -4,6 +4,7 @@ function id = addProject(self, name, options)
 % id = addProject(self, name, BehaviorGUI=..., Links=..., Archived=...)
 % id = addProject(self, name, Investigator=..., IACUCProtocol=...)
 % id = addProject(self, name, SavingFcn=..., TimerPeriod=..., VideoRootDir=...)
+% id = addProject(self, name, RecordBuffers=..., RecordStimulusSettings=...)
 % Create a project and persist it.
 %
 % The defaults are what make a project worth having: a new member inherits the
@@ -35,6 +36,11 @@ function id = addProject(self, name, options)
 %                     names its own still wins over this
 %   BehaviorGUI     - behavior GUI its sessions launch; '' inherits the session
 %                     default, BEHAVIORGUI_NONE launches none
+%   RecordBuffers   - whether buffer parameters are read into every trial
+%                     record: true, false, or NaN (not stated: they are)
+%   RecordStimulusSettings - whether a stimulus is recorded as its settings
+%                     rather than as the live object: true, false, or NaN
+%                     (not stated: the object). See SESSION_FLAG_FIELDS
 %
 % Every session-default option is optional and empty stamps "inherit the
 % built-in default", so an older roster and a script that names only a
@@ -54,6 +60,7 @@ function id = addProject(self, name, options)
 %   epsych:SubjectRoster:DuplicateName
 %   epsych:SubjectRoster:UnsafeLink
 %   epsych:SubjectRoster:InvalidTimerPeriod
+%   epsych:SubjectRoster:InvalidSessionFlag
 %
 % See also: epsych.SubjectRoster.updateProject, epsych.SubjectRoster.assign,
 %   epsych.SubjectRoster.makeLink
@@ -75,6 +82,8 @@ arguments
     options.IntanRootDir (1,:) char = ''
     options.IntanSettingsFile (1,:) char = ''
     options.BehaviorGUI (1,:) char = ''
+    options.RecordBuffers = NaN
+    options.RecordStimulusSettings = NaN
     options.Links = epsych.SubjectRoster.emptyLink()
     options.Archived (1,1) logical = false
     options.RegistryID (1,:) char = ''
@@ -97,6 +106,16 @@ if ~isnan(options.TimerPeriod) && ...
         'TimerPeriod must be between 0.001 and 1 s, or NaN to inherit the session period.');
 end
 
+% The yes/no session settings, in whatever form the caller holds them.
+flags = struct();
+for f = epsych.SubjectRoster.SESSION_FLAG_FIELDS
+    [flags.(f{1}), ok] = epsych.SubjectRoster.sessionFlag(options.(f{1}));
+    if ~ok
+        error('epsych:SubjectRoster:InvalidSessionFlag', ...
+            '%s must be true, false, or NaN to leave it at the built-in default.', f{1});
+    end
+end
+
 rec = epsych.SubjectRoster.blankProject_();
 rec.ProjectID       = epsych.SubjectRoster.newId('P');
 rec.Name            = name;
@@ -116,6 +135,8 @@ rec.IntanRootDir    = options.IntanRootDir;
 rec.IntanSettingsFile = options.IntanSettingsFile;
 rec.RegistryID      = strtrim(options.RegistryID);
 rec.BehaviorGUI     = options.BehaviorGUI;
+rec.RecordBuffers          = flags.RecordBuffers;
+rec.RecordStimulusSettings = flags.RecordStimulusSettings;
 rec.Links           = epsych.SubjectRoster.normalizeLinks_(options.Links, Validate = true);
 rec.Archived        = options.Archived;
 rec.Created         = datetime('now');

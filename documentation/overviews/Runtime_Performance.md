@@ -77,30 +77,41 @@ first column is where to ask.
 | `setpref('EPsych','DeferDisplays',true)`, or a behavior GUI's `deferDisplayWork` returning true | off (on for `cl_AppetitiveDetection_BehaviorGUI`) | Displays draw after the `NewTrial` pulse instead of before it. Analysis is never deferred. |
 | `hw.Interface.SkipUnchangedStimulus` | **on** | A `StimType` waveform is not uploaded again when the tag was last uploaded the same samples. |
 | `setpref('EPsych','SkipUnchangedWrites',true)`, or `iface.SkipUnchangedWrites` | off | In the trial loop's dispatch, a parameter the device was just read back holding is not written again. |
-| `setpref('EPsych','RecordBuffers',false)`, or `RUNTIME.RecordBuffers` | on (buffers recorded) | `Buffer` and `Coefficient Buffer` parameters are left out of the trial-end read and the record. |
-| `setpref('EPsych','RecordStimulusSettings',true)`, or `RUNTIME.RecordStimulusSettings` | off | A `StimType` value is recorded as its settings, not as the live object. |
+| **Record buffer parameters in every trial**, on the project's Session Defaults tab (Subjects window); `RUNTIME.RecordBuffers` in a script | on (buffers recorded) | Cleared, `Buffer` and `Coefficient Buffer` parameters are left out of the trial-end read and the record. |
+| **Record a stimulus as its settings, not the stimulus object**, on the same tab; `RUNTIME.RecordStimulusSettings` in a script | off | Ticked, a `StimType` value is recorded as its settings, not as the live object. |
 | `hw.NE1000.SettingsCacheInterval` | 0 (off) | A setting the pump reported answers the next read of it for this many seconds. |
 | `setpref('EPsych','StopOnIdleHardware',true)` | off | A multi-interface session stops when an interface reports Idle. |
 | `setpref('EPsych','TickStats',true)` | off | Trial-loop timing, reported at Stop. |
 | `GLogVerbosity` | `Inf` | What the log file takes. At 3, trace records cost microseconds instead of being written. |
 
-A preference that does not exist changes nothing; read them with `ispref`
+The two trial-record settings belong to the **study**, not the rig: they
+ride each subject's roster membership with the rest of the session
+settings and are saved with every session. The rest are rig preferences. A
+preference that does not exist changes nothing; read them with `ispref`
 first, since `getpref` with a default creates one.
 
-### Turning the opt-in settings on for a rig
+### Turning the opt-in settings on
 
-Each is one line at the MATLAB prompt, takes effect at the next Run, and is
-undone with `rmpref('EPsych', '<name>')`. What to check first:
+**For a study**, in the Subjects window: select the project, **Edit...**, the
+**Session Defaults (template)** tab, and set the two **Trial Record**
+checkboxes. Existing members keep what they were stamped with until
+*Project > Re-apply Project Template to Checked*; one subject is set apart
+with *Subject > Session Settings...*. What to check first:
+
+- *Record buffer parameters in every trial*: clear it when no analysis reads
+  a buffer out of `Data(k)`.
+- *Record a stimulus as its settings*: tick it unless an analysis calls
+  methods on `Data(k).<StimParameter>`. It becomes a struct of the
+  stimulus's settings; field reads (`.Frequency`, `.Duration`) are unchanged.
+
+A batch of subjects has to agree on both, like any session setting. Each
+saved session records which was in effect (`Info.RecordBuffers`,
+`Info.RecordStimulusSettings`).
+
+**For a rig**, each is one line at the MATLAB prompt, takes effect at the
+next Run, and is undone with `rmpref('EPsych', '<name>')`:
 
 ```matlab
-% No analysis reads a buffer out of Data(k)? Then stop recording them.
-setpref('EPsych', 'RecordBuffers', false)
-
-% Data(k).<StimParameter> becomes a struct of the stimulus's settings
-% instead of the stimgen object. Field reads (.Frequency, .Duration) are
-% unchanged; method calls on it are not possible.
-setpref('EPsych', 'RecordStimulusSettings', true)
-
 % No circuit on the rig rewrites its own parameter tags when ResetTrig or
 % NewTrial fires, and nothing but EPsych writes the device.
 setpref('EPsych', 'SkipUnchangedWrites', true)
@@ -178,6 +189,16 @@ user property, without the samples. Field access such as
 Both change what a saved file contains, so both wait to be asked for, and
 both are applied at Run: every record of one session must have the same
 fields.
+
+Because they decide what a study's data files hold, they are the **study's**
+settings: two checkboxes on the project's Session Defaults tab in the Subjects
+window, stamped onto each subject's membership like the data path and the
+saving function, and handed to the runtime when the session runs. A study
+that states nothing gets the defaults at every session, whatever the study
+before it on that rig chose. Each saved session records them as
+`Info.RecordBuffers` and `Info.RecordStimulusSettings`, so a file says what
+its own `Data` holds. See
+[epsych_SubjectRoster.md](../epsych/epsych_SubjectRoster.md#what-a-trial-record-holds).
 
 ## Measured
 

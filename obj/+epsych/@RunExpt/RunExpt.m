@@ -778,6 +778,13 @@ classdef RunExpt < handle
             F.TIMERfcn.Stop    = 'ep_TimerFcn_Stop';
             F.TIMERfcn.Error   = 'ep_TimerFcn_Error';
             F.TimerPeriod      = 0.01;
+
+            % What a trial record holds of buffers and of stimuli; handed to
+            % the runtime at Run (ExptDispatch). The membership states them
+            % (the project's Session Defaults), and every commit writes
+            % both, stated or not -- epsych.SubjectRoster.assignToSession.
+            F.RecordBuffers          = epsych.SubjectRoster.SESSION_FLAG_DEFAULTS.RecordBuffers;
+            F.RecordStimulusSettings = epsych.SubjectRoster.SESSION_FLAG_DEFAULTS.RecordStimulusSettings;
         end
 
         function P = GetDefaultPaths(self)

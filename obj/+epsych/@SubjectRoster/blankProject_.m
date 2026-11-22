@@ -37,6 +37,13 @@ p = struct( ...
     'IntanRootDir',    '', ...  % Intan RHX recording root
     'IntanSettingsFile', '', ...% RHX .xml; the protocol's own value still wins
     'BehaviorGUI',     '', ...  % '' inherits the session default; see BEHAVIORGUI_NONE
+    ...                         % What a trial record holds of buffers and of
+    ...                         % stimuli: 1, 0, or NaN for not stated, which
+    ...                         % is the built-in default -- what every session
+    ...                         % recorded before these fields existed. See
+    ...                         % SESSION_FLAG_FIELDS.
+    'RecordBuffers',          NaN, ...
+    'RecordStimulusSettings', NaN, ...
     ...                         % Cell-wrapped: struct() replicates a struct-array
     ...                         % value, which would build one project per link.
     'Links',           {epsych.SubjectRoster.emptyLink()}, ...

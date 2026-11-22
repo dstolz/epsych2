@@ -205,6 +205,13 @@ end
 if ~isnan(mem.TimerPeriod)
     fprintf('  Timer period: %g s\n', mem.TimerPeriod);
 end
+% Printed only when they depart from what every session used to record.
+if ~epsych.SubjectRoster.sessionFlagValue('RecordBuffers', mem.RecordBuffers)
+    fprintf('  Trial record: buffers left out\n');
+end
+if epsych.SubjectRoster.sessionFlagValue('RecordStimulusSettings', mem.RecordStimulusSettings)
+    fprintf('  Trial record: stimuli as settings\n');
+end
 if ~isnan(mem.RecordVideo)
     fprintf('  Record video: %s\n', string(mem.RecordVideo > 0));
 end

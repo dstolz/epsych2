@@ -95,9 +95,13 @@ classdef Runtime < handle & dynamicprops
         % What a trial record holds of the two kinds of value that are big.
         % Both default to what a record has always held, because both change
         % what a saved file contains; set them before the run starts (the
-        % records of one session must all have the same fields). RunExpt
-        % applies preferences EPsych/RecordBuffers and
-        % EPsych/RecordStimulusSettings at Run when they exist. See
+        % records of one session must all have the same fields). In a
+        % RunExpt session the STUDY decides: each subject's roster
+        % membership carries the two settings, set on the project's Session
+        % Defaults tab, and RunExpt hands the agreed values to the runtime
+        % at Run (epsych.SubjectRoster.SESSION_FLAG_FIELDS). A scripted
+        % session sets them here. Which was in effect is saved with the
+        % session (Info.RecordBuffers, Info.RecordStimulusSettings). See
         % trialRecord.
         %
         % RecordBuffers - false leaves 'Buffer' and 'Coefficient Buffer'

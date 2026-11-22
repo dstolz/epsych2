@@ -26,8 +26,8 @@ Membership is many-to-many — one animal can be in several studies — **and** 
 | Array | Holds |
 |---|---|
 | `Subjects` | `SubjectID`, `Name`, `Sex`, `Species`, `Weight`, `Notes`, `NameHistory`, `Retired`, `Created`, `Modified` |
-| `Projects` | `ProjectID`, `Name`, `Notes`, `Investigator`, `IACUCProtocol`, `DefaultProtocol`, `DefaultDataPath`, `SavingFcn`, `TimerStartFcn`, `TimerRunTimeFcn`, `TimerStopFcn`, `TimerErrorFcn`, `TimerPeriod`, `VideoRootDir`, `IntanRootDir`, `IntanSettingsFile`, `BehaviorGUI`, `Links`, `Archived`, `Created`, `Modified` |
-| `Memberships` | `SubjectID`, `ProjectID`, `Active`, `LastProtocol`, `LastProtocolVersion`, `LastBoxID`, `ProtocolHistory`, the session settings stamped from the project's template (`DefaultDataPath`, `SavingFcn`, `BehaviorGUI`, `TimerPeriod`, `TimerStartFcn`, `TimerRunTimeFcn`, `TimerStopFcn`, `TimerErrorFcn`, `VideoRootDir`, `IntanRootDir`, `IntanSettingsFile` — see `SESSION_FIELDS`), `Added`, `Modified` |
+| `Projects` | `ProjectID`, `Name`, `Notes`, `Investigator`, `IACUCProtocol`, `DefaultProtocol`, `DefaultDataPath`, `SavingFcn`, `TimerStartFcn`, `TimerRunTimeFcn`, `TimerStopFcn`, `TimerErrorFcn`, `TimerPeriod`, `VideoRootDir`, `IntanRootDir`, `IntanSettingsFile`, `BehaviorGUI`, `RecordBuffers`, `RecordStimulusSettings`, `Links`, `Archived`, `Created`, `Modified` |
+| `Memberships` | `SubjectID`, `ProjectID`, `Active`, `LastProtocol`, `LastProtocolVersion`, `LastBoxID`, `ProtocolHistory`, the session settings stamped from the project's template (`DefaultDataPath`, `SavingFcn`, `BehaviorGUI`, `TimerPeriod`, `TimerStartFcn`, `TimerRunTimeFcn`, `TimerStopFcn`, `TimerErrorFcn`, `VideoRootDir`, `IntanRootDir`, `IntanSettingsFile`, `RecordBuffers`, `RecordStimulusSettings` — see `SESSION_FIELDS`), `Added`, `Modified` |
 
 `Active` is the per-project archive flag. `setActive(s, p, false)` retires a subject from **that project only**; it stays active everywhere else and keeps its protocol memory, which is what makes retiring reversible in one click and `deleteSubject` a last resort.
 
@@ -59,10 +59,49 @@ The project's Session Defaults are a **template**: `assign` stamps them verbatim
 | `IntanRootDir` | `RunExpt.PATHS.IntanRootDir` | Logged at level 0 if it contains spaces, which RHX cannot express. |
 | `IntanSettingsFile` | `RunExpt.PATHS.IntanSettingsFile` | A protocol that names its own settings file still wins over this. |
 | `BehaviorGUI` | `RunExpt.FUNCS.BehaviorGUI` | Three states; see below. |
+| `RecordBuffers`, `RecordStimulusSettings` | `RunExpt.FUNCS.RecordBuffers`, `.RecordStimulusSettings`, then `epsych.Runtime` at Run | What a trial record holds of buffers and of stimuli. Yes/no, and the one pair that does not follow the two rules below; see *What a trial record holds*. |
 
 Two rules hold across all of them. **Empty is "inherit the built-in default"** (`ep_SaveDataFcn`, `ep_GenericGUI`, the `ep_TimerFcn_*` callbacks, 0.01 s) — the only meaning a roster written before these fields existed can have, and deterministic for the first time: there is no rig-local preference layer underneath anymore. And **nothing is written back to the machine's preferences**: a session follows the study it is running, and the next session starts from the built-ins again. `RunExpt.PATHS` exists for exactly that reason — the recording roots used to be read from `getpref` at the moment of use, which left a study no way to override them for one session only.
 
 [`gui.SubjectManager`](../gui/gui_SubjectManager.md#the-project-dialog)'s dialogs fill every one of these in before the operator sees it and refuse blanks on OK, so a template or membership written there is never partly empty; the all-inherit state can arise only from scripts and rosters written before the fields existed.
+
+#### What a trial record holds
+
+Two session settings are yes/no choices about what each trial's record
+contains (`SESSION_FLAG_FIELDS`):
+
+| Field | Yes | No | Not stated |
+|---|---|---|---|
+| `RecordBuffers` | Every visible `Buffer` and `Coefficient Buffer` parameter is read whole into each trial's record. | Buffers are not read at trial end and have no field in `Data`. | Yes |
+| `RecordStimulusSettings` | A `StimType` value is recorded as a struct of the stimulus's settings as they were for that trial. | It is recorded as the live stimulus object. | No |
+
+They are stored tri-state as a double — `1`, `0`, or `NaN` for not stated,
+the `RecordVideo` convention — because a roster written before the fields
+existed has to keep meaning what it meant then. `epsych.SubjectRoster.sessionFlag`
+is the one canonical form (it accepts `true`, `"on"`, `"yes"`, `[]`,
+`"inherit"` and so on) and `sessionFlagValue(field, value)` the one place
+`NaN` is resolved.
+
+They differ from the other session settings in two ways, both because they
+decide what a **data file contains**:
+
+- **Not stated means the built-in default, at every commit** — not "leave
+  the session as the last batch left it", which is what an empty data path
+  means. `assignToSession` writes both to the session whether the
+  membership states them or not, and whether there is a project at all, so
+  one study's choice never rides into the next study's files.
+- **They are compared as what they mean.** Stating the built-in default and
+  stating nothing are one setting, so they agree in the commit-time
+  mismatch check and read `template` in the manager's Settings column.
+  Without that, a template that came to state the default would turn every
+  member stamped before it into a refusal over nothing.
+
+`epsych.RunExpt` hands the agreed values to the runtime at Run
+(`epsych.Runtime.RecordBuffers`, `RecordStimulusSettings`), and the session's
+`Info` records them, so a file says what its own `Data` holds. A scripted
+session with no roster sets the runtime's properties directly. Standing
+proof: `tmp/smoke_test_session_record_settings.m`. Why they exist, and what
+they cost, is in [Runtime_Performance.md](../overviews/Runtime_Performance.md#what-a-trial-record-holds).
 
 #### The behavior GUI, in three states
 

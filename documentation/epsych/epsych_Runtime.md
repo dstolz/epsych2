@@ -43,8 +43,8 @@ Primary method files:
 | `Journal` | Per-subject [`epsych.TrialJournal`](epsych_TrialJournal.md); the append-only file each completed trial is written to. |
 | `StartTime` | Session start `datetime`. |
 | `TickStats` | An [`epsych.TickStats`](epsych_TickStats.md) timing the trial loop, or empty (the default). `RunExpt` creates one at Run when preference `EPsych/TickStats` is true. |
-| `RecordBuffers` | `true` (default): `Buffer` and `Coefficient Buffer` parameters are read into every trial record. `false` leaves them out of the trial-end read and the record. Set before the run starts. |
-| `RecordStimulusSettings` | `false` (default): a `StimType` value is recorded as the live stimulus object. `true` records `stimgen.StimType.toStruct` instead — the settings, without the samples. Set before the run starts. |
+| `RecordBuffers` | `true` (default): `Buffer` and `Coefficient Buffer` parameters are read into every trial record. `false` leaves them out of the trial-end read and the record. Set before the run starts; in a RunExpt session it comes from the study's session settings (`epsych.SubjectRoster.SESSION_FLAG_FIELDS`) and is saved as `Info.RecordBuffers`. |
+| `RecordStimulusSettings` | `false` (default): a `StimType` value is recorded as the live stimulus object. `true` records `stimgen.StimType.toStruct` instead — the settings, without the samples. Set before the run starts; from the study's session settings likewise, saved as `Info.RecordStimulusSettings`. |
 
 Note: `epsych.Runtime` subclasses `dynamicprops`, so some workflows attach extra properties at runtime — for example `readParameters` adds a `Phase` property that logs which phase files were loaded and when.
 

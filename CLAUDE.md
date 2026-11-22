@@ -174,8 +174,10 @@ Rules that matter:
   the parent) rather than at the first save.
   The **MEMBERSHIP carries the session settings a paradigm decides**
   (`SESSION_FIELDS`: `DefaultDataPath`, `SavingFcn`, `BehaviorGUI`,
-  `TimerPeriod`, the four `Timer*Fcn` PsychTimer callbacks, and the recording
-  roots): selecting a subject selects all config required to run it. The
+  `TimerPeriod`, the four `Timer*Fcn` PsychTimer callbacks, the recording
+  roots, and the two yes/no trial-record settings `RecordBuffers` and
+  `RecordStimulusSettings` — see The Trial Boundary & Runtime Performance):
+  selecting a subject selects all config required to run it. The
   project's Session Defaults are a **template**, stamped verbatim at `assign`
   (and in `copyProject`'s member copies — from the NEW project's template,
   never the source memberships); later template edits reach existing members
@@ -1771,7 +1773,25 @@ re-derive:
   journal per trial for a 1 s stimulus. The second setting records
   `stimgen.StimType.toStruct` instead. Both change a saved file, hence the
   defaults, and are applied at Run because every record of a session needs
-  the same fields.
+  the same fields. They are the STUDY's settings, not the rig's: two
+  SESSION_FIELDS on the roster membership (the `SESSION_FLAG_FIELDS`), set
+  by two checkboxes on the project's Session Defaults tab, landed on
+  `RunExpt.FUNCS` by `assignToSession` and handed to the runtime in
+  `ExptDispatch`; `Info.RecordBuffers`/`Info.RecordStimulusSettings` record
+  which a file was saved under. Stored tri-state as a double (1, 0, NaN =
+  not stated; `epsych.SubjectRoster.sessionFlag`), and unlike every other
+  session field in two ways: NaN means the BUILT-IN default at every commit
+  (`sessionFlagValue`), never "leave the session as the last batch left
+  it", so one study's choice of what a data file holds cannot ride into the
+  next study's files — `assignToSession` writes both even with no project;
+  and they are compared as what they MEAN, so stating the default and
+  stating nothing agree in the mismatch check and the manager's Settings
+  column (a template that came to state the default would otherwise turn
+  every member stamped before it into a refusal over nothing). The dialog
+  opens them on the stated value or the built-in, deliberately with no
+  MRU. `sessionFlagValue`'s arguments block names the two fields as
+  literals because a validator cannot reference a class constant. Standing
+  proof `tmp/smoke_test_session_record_settings.m`.
 - **The idle watchdog never fired on a multi-interface rig**:
   `get(heterogeneousArray,'mode')` returns a cell of `[]` and calls no
   getter. `RunExpt.hardwareIdle` keeps that as the default and makes stopping

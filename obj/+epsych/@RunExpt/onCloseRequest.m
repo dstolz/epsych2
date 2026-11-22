@@ -1,18 +1,27 @@
-function onCloseRequest(self)
-% onCloseRequest — Graceful shutdown of running experiment and UI.
+function onCloseRequest(self, ask)
+% onCloseRequest(self)
+% onCloseRequest(self, ask)
+% Graceful shutdown of running experiment and UI.
 % Behavior
-%   Warns if running, stops/deletes timers, releases hardware, and deletes
-%   the main figure. Nothing is written to the machine preferences: the
-%   session's FUNCS came from the subjects' memberships, and persisting them
-%   here would turn one study's settings into the rig's defaults.
+%   Warns if running, stops the session as the Stop control would, releases
+%   hardware, and deletes the main figure. Nothing is written to the machine
+%   preferences: the session's FUNCS came from the subjects' memberships, and
+%   persisting them here would turn one study's settings into the rig's
+%   defaults.
+% Parameters
+%   ask - true (default) asks before closing a running session. The
+%         destructor passes false: an object being destroyed cannot be kept,
+%         so there is no Cancel to offer.
 arguments
     self
+    ask (1,1) logical = true
 end
 if self.IsClosing
     return
 end
 
-if self.STATE == PRGMSTATE.RUNNING
+running = self.STATE == PRGMSTATE.RUNNING;
+if running && ask
     b = questdlg('Experiment is currently running. Closing will stop the experiment.', ...
         'Experiment','Close Experiment','Cancel','Cancel');
     if strcmp(b,'Cancel'), return, end
@@ -20,7 +29,21 @@ end
 
 self.IsClosing = true;
 
-if isfield(self.RUNTIME,'TIMER') && ~isempty(self.RUNTIME.TIMER) && isvalid(self.RUNTIME.TIMER)
+% Stop a running session exactly as the Stop control does -- the mode
+% broadcast, the timers, the video and the save -- while the window those
+% report to still exists.
+if running
+    try
+        self.ExptDispatch("Stop");
+    catch ME
+        vprintf(0,1,ME);
+    end
+end
+
+% Whatever is left of the session timer. RUNTIME is an object, so the
+% isfield(self.RUNTIME,'TIMER') this used to test was never true, and a
+% session closed mid-run kept ticking with its window gone.
+if isvalid(self.RUNTIME) && ~isempty(self.RUNTIME.TIMER) && isvalid(self.RUNTIME.TIMER)
     try
         stop(self.RUNTIME.TIMER)
     catch

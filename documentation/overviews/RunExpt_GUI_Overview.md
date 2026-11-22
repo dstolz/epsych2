@@ -301,7 +301,7 @@ In the RunExpt figure:
 - **Data saving is intentionally post-run** by default: the Save Data button is enabled after Stop (and on Error).
 - **Hardware comes from the protocol**: which backend is used (TDT Synapse, TDT RPvds, Intan, software-only) is defined in the protocol file, not chosen in RunExpt. If hardware fails to connect, check the protocol's interface configuration and the device, then try again.
 - **Protocol edits are not picked up automatically**: after editing a protocol in the Protocol Designer, use **Update to Latest Version** on the row (or **Subjects → Reload All Protocols from Disk**, Ctrl+R) so the session loads the new version.
-- **Closing the GUI stops the session**: closing while running prompts first, then stops the timers, releases the hardware, and cleans up.
+- **Closing the GUI stops the session**: closing while running prompts first, then stops the session exactly as **Stop** does — the saving function runs — releases the hardware, and cleans up. Deleting the session object from a script (`delete(rx)`) does the same without the prompt.
 - **Check before you run**: **Help → Diagnostics → Run Self-Test...** catches most of the above — a missing protocol trigger, an unwritable data path, a stale protocol version — before a session starts rather than partway through one.
 
 ## Related documentation

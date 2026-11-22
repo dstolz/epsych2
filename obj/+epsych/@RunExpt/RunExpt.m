@@ -267,10 +267,14 @@ classdef RunExpt < handle
 
         function delete(self)
             % delete(self)
-            % Close the GUI cleanly when the object is destroyed.
+            % Close the GUI cleanly when the object is destroyed. There is
+            % no isvalid(self) test: it is already false inside a handle's
+            % delete, which is how this used to do nothing and leave the
+            % window open. A running session is stopped without asking,
+            % since a destructor cannot be cancelled.
             try
-                if isvalid(self) && ~self.IsClosing
-                    self.onCloseRequest
+                if ~self.IsClosing
+                    self.onCloseRequest(false)
                 end
             catch
             end
@@ -587,7 +591,7 @@ classdef RunExpt < handle
     methods (Access=private)
         buildUI(self)                                      % Build main figure and all UI components
         onFigureKeyPress(self, evt)                        % Handle key-press events on the main figure
-        onCloseRequest(self)                               % Stop experiment if running and destroy the figure
+        onCloseRequest(self, ask)                          % Stop experiment if running and destroy the figure; ask=false (the destructor) does not ask first
         SaveDataCallback(self)                             % Invoke the configured data-saving callback
         recent = GetRecentFuncs(self, prefKey)             % Return the MRU function-name list for a Customize dialog field
         RememberRecentFunc(self, prefKey, name)            % Record an accepted function name in a Customize dialog field's MRU list

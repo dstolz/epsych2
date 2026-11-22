@@ -400,6 +400,7 @@ classdef TDT_Synapse < hw.Interface
 
         function close_interface(obj)
             obj.ParameterSizes_ = containers.Map('KeyType', 'char', 'ValueType', 'double');
+            obj.forgetStimulusSent_();
             obj.modeTic_ = [];
             obj.directRead_ = [];
 
@@ -587,6 +588,12 @@ classdef TDT_Synapse < hw.Interface
                     continue
                 end
 
+                % Any other write to a tag a waveform was uploaded to changes
+                % what the buffer holds, so that upload is no longer known.
+                if ~isempty(obj.StimulusSent_)
+                    obj.forgetStimulusSent_([gizmo '.' tag]);
+                end
+
                 v = double(v);
                 if isscalar(v)
                     ok = obj.HW.setParameterValue(gizmo, tag, v);
@@ -743,6 +750,9 @@ classdef TDT_Synapse < hw.Interface
         function applyModeState_(obj, mode)
             obj.ModeState_ = mode;
             obj.modeTic_ = [];
+            % A mode change may unload the circuit (Idle does), and a
+            % reloaded buffer is empty: the next stimulus write is real.
+            obj.forgetStimulusSent_();
             if ~obj.IsConnected || isempty(obj.HW)
                 return
             end
@@ -877,11 +887,31 @@ classdef TDT_Synapse < hw.Interface
                 return
             end
 
+            % The stimulus was regenerated above, as on every write; the
+            % TRANSFER is left out when this tag was last uploaded the same
+            % samples (hw.Interface.SkipUnchangedStimulus). Compared in
+            % single precision, which is what the processor's buffer holds.
+            key = [gizmo '.' tag];
+            samples = single(reshape(payload.Signal, 1, []));
+            if obj.stimulusOnDevice_(key, samples)
+                ok = true;
+                if ~obj.InDispatch
+                    vprintf(4,'Parameter %s = %s is already on the device (%d samples); not uploaded again', ...
+                        p.Name, payload.DisplayName, payload.N)
+                end
+                return
+            end
+
             ok = obj.HW.setParameterValues(gizmo, tag, reshape(payload.Signal, 1, []));
             if ok
-                vprintf(4,'Updated parameter: %s = %s (%d samples @ %g Hz)', ...
-                    p.Name, payload.DisplayName, payload.N, payload.Fs)
+                obj.noteStimulusSent_(key, samples);
+                if ~obj.InDispatch
+                    vprintf(4,'Updated parameter: %s = %s (%d samples @ %g Hz)', ...
+                        p.Name, payload.DisplayName, payload.N, payload.Fs)
+                end
             else
+                % What the buffer holds after a refused transfer is unknown.
+                obj.forgetStimulusSent_(key);
                 vprintf(0,1,'Failed to write stimulus "%s" (%d samples) to "%s.%s"', ...
                     payload.DisplayName, payload.N, gizmo, tag)
             end

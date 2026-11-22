@@ -173,6 +173,11 @@ classdef TDT_RPcox < hw.Interface
             tf = obj.IsConnected;
             obj.linkUp_ = tf;
             obj.linkTic_ = tic;
+            if ~tf
+                % A device that stopped answering may come back power
+                % cycled, with its buffers empty.
+                obj.forgetStimulusSent_();
+            end
         end
 
         function connect(obj)
@@ -680,6 +685,12 @@ classdef TDT_RPcox < hw.Interface
                     continue
                 end
 
+                % Any other write to a tag a waveform was uploaded to changes
+                % what the buffer holds, so that upload is no longer known.
+                if ~isempty(obj.StimulusSent_)
+                    obj.forgetStimulusSent_(obj.stimulusKey_(p, parameterName));
+                end
+
                 e = hwHandle.write(parameterName,v);
                 if e
                     % Format the value just written rather than reading
@@ -773,7 +784,7 @@ classdef TDT_RPcox < hw.Interface
     end
 
     methods (Access = private)
-        function e = writeStimulus_(~, p, stim, parameterName, hwHandle)
+        function e = writeStimulus_(obj, p, stim, parameterName, hwHandle)
             % e = writeStimulus_(obj, p, stim, parameterName, hwHandle)
             % Write a 'StimType' parameter to its RPvds tag as a waveform.
             %
@@ -785,9 +796,16 @@ classdef TDT_RPcox < hw.Interface
             % longer than the tag can hold, so a stimulus that overruns the
             % circuit's buffer is reported rather than silently truncated.
             %
+            % The stimulus is regenerated on every call; the TRANSFER is left
+            % out when the tag was last uploaded these same samples
+            % (hw.Interface.SkipUnchangedStimulus). The comparison is made in
+            % single precision because that is what goes on the wire:
+            % TDTRP.write sends WriteTagVEX(..., 'F32', ...).
+            %
             % Returns:
-            %   e - True when the waveform was written (or there was nothing to
-            %       write), false when the tag write failed.
+            %   e - True when the waveform was written, was already on the
+            %       device, or there was nothing to write; false when the tag
+            %       write failed.
 
             if isempty(stim)
                 e = true;
@@ -812,21 +830,50 @@ classdef TDT_RPcox < hw.Interface
                 return
             end
 
+            key = obj.stimulusKey_(p, parameterName);
+            samples = single(reshape(payload.Signal, 1, []));
+            if obj.stimulusOnDevice_(key, samples)
+                e = true;
+                if ~obj.InDispatch
+                    vprintf(4,'Parameter %s = %s is already on the device (%d samples); not uploaded again', ...
+                        p.Name, payload.DisplayName, payload.N)
+                end
+                return
+            end
+
             e = hwHandle.write(parameterName, payload.Signal);
             if e
-                vprintf(4,'Updated parameter: %s = %s (%d samples @ %g Hz)', ...
-                    p.Name, payload.DisplayName, payload.N, payload.Fs)
+                obj.noteStimulusSent_(key, samples);
+                if ~obj.InDispatch
+                    vprintf(4,'Updated parameter: %s = %s (%d samples @ %g Hz)', ...
+                        p.Name, payload.DisplayName, payload.N, payload.Fs)
+                end
             else
+                % What the buffer holds after a refused transfer is unknown.
+                obj.forgetStimulusSent_(key);
+                obj.dropLink_();
                 vprintf(0,1,'Failed to write stimulus "%s" (%d samples) to "%s"', ...
                     payload.DisplayName, payload.N, parameterName)
             end
         end
 
+        function key = stimulusKey_(~, p, parameterName)
+            % The name a buffer tag's last upload is remembered under: the
+            % module's index and the tag, since two modules may each have a
+            % tag of the same name.
+            key = sprintf('%d|%s', p.Module.Index, parameterName);
+        end
+
         function dropLink_(obj)
             % Forget the cached connection probe and the cached mode, so the
-            % next ioReady and the next mode query ask the device.
+            % next ioReady and the next mode query ask the device -- and
+            % forget which waveforms were uploaded, so the next stimulus
+            % write is a real one. Everything that calls this is something
+            % after which the device may not hold what it held: a connect, a
+            % circuit reload, a mode change, a write it refused, a COM error.
             obj.linkTic_ = [];
             obj.modeTic_ = [];
+            obj.forgetStimulusSent_();
         end
 
         function applyModeState_(obj, mode)

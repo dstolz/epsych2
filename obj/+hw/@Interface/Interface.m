@@ -49,6 +49,35 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
         % the interface stays in the array — removing it would take its
         % parameters out of trial dispatch and out of readParameters' lookup.
         RunOffline (1,1) logical = false
+
+        % Leave a 'StimType' waveform on the device when it is, sample for
+        % sample in the device's own precision, what this interface last
+        % uploaded to the same tag. The stimulus is still regenerated on
+        % every write -- a noise token that draws new samples is therefore
+        % uploaded every time -- and only the transfer is left out, which on
+        % a long stimulus is most of what a trial dispatch costs.
+        %
+        % Honoured by the backends that upload a waveform (hw.TDT_RPcox,
+        % hw.TDT_Synapse). They forget what they sent whenever the device
+        % may no longer hold it: a connect, a circuit reload at the start of
+        % a run, a mode change, a failed write, any other write to the tag.
+        % Set false for a circuit that writes into its own stimulus buffer,
+        % or one another program also writes: nothing here can see that.
+        % Not saved with a protocol; set it from code.
+        SkipUnchangedStimulus (1,1) logical = true
+    end
+
+    properties (Transient, SetAccess = protected)
+        % Waveform uploads this interface sent, and the ones it left out
+        % because the device already held the samples (SkipUnchangedStimulus).
+        StimulusUploads (1,1) double = 0
+        StimulusUploadsSkipped (1,1) double = 0
+    end
+
+    properties (Transient, Access = protected)
+        % What each buffer tag was last uploaded, as sent: a containers.Map
+        % made on first use (a default would be shared by every interface).
+        StimulusSent_ = []
     end
 
     properties (Transient, Hidden)
@@ -591,6 +620,55 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             end
 
             parameter.UserData.HardwareName = char(hardwareName);
+        end
+
+        % --- Waveform uploads (SkipUnchangedStimulus) -----------------------
+        % A backend that uploads a 'StimType' waveform asks stimulusOnDevice_
+        % before the transfer, calls noteStimulusSent_ after one that
+        % succeeded, and forgetStimulusSent_ whenever the device may no
+        % longer hold what was sent. SAMPLES must be exactly what goes on
+        % the wire, in the device's own precision: the comparison is
+        % isequal, so a stimulus that differs in one sample is uploaded.
+
+        function tf = stimulusOnDevice_(obj, key, samples)
+            % tf = stimulusOnDevice_(obj, key, samples)
+            % True when the tag named by KEY was last uploaded exactly these
+            % samples and nothing has invalidated that since. Counts the
+            % skip; always false when SkipUnchangedStimulus is off.
+            tf = false;
+            if ~obj.SkipUnchangedStimulus || isempty(obj.StimulusSent_)
+                return
+            end
+            if obj.StimulusSent_.isKey(key) && isequal(obj.StimulusSent_(key), samples)
+                tf = true;
+                obj.StimulusUploadsSkipped = obj.StimulusUploadsSkipped + 1;
+            end
+        end
+
+        function noteStimulusSent_(obj, key, samples)
+            % noteStimulusSent_(obj, key, samples)
+            % Record a successful upload. Kept even when skipping is off, so
+            % switching it on mid-session starts from what is known.
+            if isempty(obj.StimulusSent_)
+                obj.StimulusSent_ = containers.Map('KeyType', 'char', 'ValueType', 'any');
+            end
+            obj.StimulusSent_(key) = samples;
+            obj.StimulusUploads = obj.StimulusUploads + 1;
+        end
+
+        function forgetStimulusSent_(obj, key)
+            % forgetStimulusSent_(obj)        every tag
+            % forgetStimulusSent_(obj, key)   one tag
+            % The device may no longer hold what was uploaded; the next
+            % write of that tag is a real one.
+            if isempty(obj.StimulusSent_)
+                return
+            end
+            if nargin < 2
+                obj.StimulusSent_ = [];
+            elseif obj.StimulusSent_.isKey(key)
+                remove(obj.StimulusSent_, key);
+            end
         end
     end
 

@@ -197,6 +197,53 @@ assert(isequal(pITI.Values, {5000}), ...
 fprintf('PASS: design Values are touched only while a recompile is pending\n');
 
 delete(U); delete(hITI); delete(hRange); delete(hMin);
+
+
+% 9. A device that keeps single precision, and counts its reads --------------
+% Everything above runs on hw.Software, where a read costs nothing and the
+% value read back IS the value written. On an RPvds tag neither holds: a
+% read is a COM round trip, and 0.1 comes back as 0.100000001490116. The
+% control recognises a write that changes nothing by the HOST value
+% (hw.Parameter.hostValue), so it must (a) make no device read for one, (b)
+% still keep a staged edit across one although the base the edit recorded is
+% a read-back and the host value is not, and (c) show the device's read-back
+% when the value really changes.
+dev = CountingProbeInterface(CoerceSingle=true);
+cleanupDev = onCleanup(@() delete(dev));
+pF = dev.add_parameter('Gain', 0.1);
+pF.Value = 0.1;
+readBack = double(single(0.1));
+assert(pF.Value == readBack && readBack ~= 0.1, 'the probe should read back single precision');
+
+hF = gui.components.Parameter_Control(fig, pF, Type='editfield');
+assert(hF.Value == readBack, 'the control should seat at the device read-back');
+
+pF.Value = 0.1;            % first write the control sees: it synchronises here
+dev.resetCounts();
+pF.Value = 0.1;            % what dispatchNextTrial does at every boundary
+pF.Value = 0.1;
+assert(dev.Counts.Read == 0, ...
+    'a re-asserted value cost %d device read(s); expected none', dev.Counts.Read);
+assert(dev.Counts.Write == 2, 'the writes themselves must still reach the device');
+assert(hF.Value == readBack, 'the widget should be untouched by a re-assert');
+fprintf('PASS: a re-asserted value costs the control no device read\n');
+
+typeInto(hF, 0.3);
+assert(hF.ValueUpdated, 'an edit should be pending');
+dev.resetCounts();
+pF.Value = 0.1;            % the boundary re-asserts the value the edit was made against
+assert(hF.ValueUpdated && hF.Value == 0.3, ...
+    'a staged edit on a single-precision tag was discarded by a re-assert (shows %g)', hF.Value);
+assert(dev.Counts.Read == 0, 'keeping the staged edit should not have read the device');
+fprintf('PASS: a staged edit survives a re-assert on a single-precision device\n');
+
+pF.Value = 0.2;            % a real change, e.g. a phase load
+assert(~hF.ValueUpdated, 'a real change should supersede the staged edit');
+assert(hF.Value == double(single(0.2)), ...
+    'a real change should show the device read-back, not the host value (shows %.17g)', hF.Value);
+fprintf('PASS: a real change shows the device read-back\n');
+delete(hF);
+
 fprintf('\nAll pending-edit checks passed.\n');
 end
 

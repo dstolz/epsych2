@@ -92,6 +92,34 @@ classdef Runtime < handle & dynamicprops
         % Run when preference EPsych/TickStats is true and reports it at Stop.
         TickStats = []
 
+        % What a trial record holds of the two kinds of value that are big.
+        % Both default to what a record has always held, because both change
+        % what a saved file contains; set them before the run starts (the
+        % records of one session must all have the same fields). RunExpt
+        % applies preferences EPsych/RecordBuffers and
+        % EPsych/RecordStimulusSettings at Run when they exist. See
+        % trialRecord.
+        %
+        % RecordBuffers - false leaves 'Buffer' and 'Coefficient Buffer'
+        %   parameters out of the trial-end read and out of the record. Read
+        %   whole on every trial, a visible buffer tag is megabytes off the
+        %   device, into DATA and into the journal, each time; until now the
+        %   only way to stop that was to hide the tag. gui.components.BufferPlot
+        %   reads a buffer it plots off the device itself when the record
+        %   does not carry it.
+        %
+        % RecordStimulusSettings - true records a 'StimType' value as the
+        %   stimulus's settings (stimgen.StimType.toStruct: class, name,
+        %   every user property, no samples) instead of the live object. The
+        %   object is a handle, so every record of a session holds the SAME
+        %   one and shows what the stimulus is when the file is saved, not
+        %   what the trial played; and it is serialized whole, samples and
+        %   listeners included -- 0.9 MB per trial into the journal for a 1 s
+        %   stimulus (measured), with a warning per listener when it is read
+        %   back.
+        RecordBuffers (1,1) logical = true
+        RecordStimulusSettings (1,1) logical = false
+
         % The error that ended the run: RunExpt.PsychTimerError stores the
         % timer's lasterror here and the Error timer function (ep_TimerFcn_Error)
         % logs and rethrows it. Declared, because an undeclared property made
@@ -145,6 +173,7 @@ classdef Runtime < handle & dynamicprops
         P = readParametersJSON(obj, filepath)   % Back-compat wrapper for readParameters.
         [P, Excluded, Overridden] = readParameters(obj, filepath, options) % Load a phase file (.eprot/.prot or legacy .json); returns the resolved hw.Parameter array. Exclude=params leaves those parameters untouched; Override loads chosen values in place of the file's.
         dispatchNextTrial(obj, subjectIdx, options) % Dispatch the already selected next trial for one subject.
+        data = trialRecord(obj)                 % Read what a completed trial is recorded with: every readable parameter's value, in one pass.
         resolveTriggerParameters(obj, subjectIdx) % Locate and cache the required trigger parameters (NewTrial, ResetTrig, TrialComplete) for one subject.
 
         function self = Runtime

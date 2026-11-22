@@ -195,6 +195,25 @@ switch COMMAND
             end
         end
 
+        % What a trial record holds of buffers and of stimuli
+        % (epsych.Runtime.RecordBuffers, RecordStimulusSettings). Applied
+        % here, before the first trial, because every record of a session
+        % must have the same fields.
+        for rec = ["RecordBuffers", "RecordStimulusSettings"]
+            if ispref('EPsych', char(rec))
+                v = getpref('EPsych', char(rec));
+                if isscalar(v) && (islogical(v) || isnumeric(v))
+                    self.RUNTIME.(rec) = logical(v);
+                end
+            end
+        end
+        if ~self.RUNTIME.RecordBuffers
+            vprintf(1, 'Buffer parameters are left out of the trial record (preference EPsych/RecordBuffers)')
+        end
+        if self.RUNTIME.RecordStimulusSettings
+            vprintf(1, 'Stimuli are recorded as their settings, not as objects (preference EPsych/RecordStimulusSettings)')
+        end
+
         % Trial-loop timing is recorded only when asked for (preference
         % EPsych/TickStats); see epsych.TickStats. Reported at Stop.
         if epsych.TickStats.enabledByPref()

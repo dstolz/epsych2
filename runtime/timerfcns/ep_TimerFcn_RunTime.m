@@ -67,7 +67,11 @@ for i = 1:RUNTIME.NSubjects
     % Get Read parameters scoped to this subject's box.
     % Box-specific parameters carry a "~BoxID" suffix; global parameters
     % (software interface, no suffix) are included for every subject.
-    data = RUNTIME.all_parameters(Access = 'Read',asStruct=true,valueOnly=true);
+    % trialRecord is all_parameters(Access='Read',asStruct=true,
+    % valueOnly=true) unless the session asked for buffers to be left out
+    % or stimuli recorded as settings (epsych.Runtime.RecordBuffers,
+    % RecordStimulusSettings).
+    data = RUNTIME.trialRecord();
 
     data.TrialIndex = RUNTIME.TRIALS(i).TrialIndex;
     data.TrialID     = RUNTIME.TRIALS(i).NextTrialID;

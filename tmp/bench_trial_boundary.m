@@ -31,6 +31,13 @@ function R = bench_trial_boundary(options)
 %                   trial to trial; the rest are written the same value). Default 2
 %   NumControls   - gui.components.Parameter_Control bound to device parameters,
 %                   in an invisible figure. Default 0
+%   Displays      - a Staircase over the first writable parameter with its
+%                   plot, a History table and a ParameterScatter, in an
+%                   invisible figure, as a behavior GUI would hold. Adds a
+%                   RespCode read parameter. Default false
+%   DeferDisplays - the session asks its hub to hold display drawing until
+%                   the next trial is dispatched (epsych.EventHub.defer).
+%                   Default false
 %   BufferSamples - > 0 adds a readable Buffer of this many samples. Default 0
 %   CallDelay     - seconds each device call busy-waits. Default 0
 %   ProbeTTL      - seconds the double may cache its connection probe, as
@@ -62,6 +69,8 @@ arguments
     options.NumExpr (1,1) double {mustBeNonnegative, mustBeInteger} = 2
     options.NumRoved (1,1) double {mustBeNonnegative, mustBeInteger} = 2
     options.NumControls (1,1) double {mustBeNonnegative, mustBeInteger} = 0
+    options.Displays (1,1) logical = false
+    options.DeferDisplays (1,1) logical = false
     options.BufferSamples (1,1) double {mustBeNonnegative, mustBeInteger} = 0
     options.CallDelay (1,1) double {mustBeNonnegative} = 0
     options.ProbeTTL (1,1) double {mustBeNonnegative} = 0.25
@@ -119,6 +128,10 @@ if options.BufferSamples > 0
     p = dev.add_parameter('Buf', 0, Type = 'Buffer', Access = 'Read', isArray = true);
     dev.put(p, single(1:options.BufferSamples));
 end
+if options.Displays
+    p = dev.add_parameter('RespCode', 0, Type = 'Integer', Access = 'Read');
+    dev.put(p, epsych.BitMask.Bits2Mask(uint32([epsych.BitMask.Hit epsych.BitMask.TrialType_0])));
+end
 for nm = ["x_NewTrial_1" "x_ResetTrig_1" "x_TrialComplete_1"]
     p = dev.add_parameter(char(nm), 0, isTrigger = true);
     dev.put(p, 0);
@@ -157,6 +170,27 @@ if options.NumControls > 0 && ~isempty(W)
         ctl{k} = gui.components.Parameter_Control(fig, W(k), Type = 'editfield');
     end
 end
+
+% --- Optional displays, as a behavior GUI would hold ------------------------
+% Their own window: the figure is never shown, so what is measured is the
+% MATLAB-side work of each update (table and line data, labels, limits), not
+% the render that follows it.
+showTags = {};
+if options.Displays && ~isempty(W)
+    showTags = {'benchTrialBoundaryHistory', 'benchTrialBoundaryScatter'};
+    localRmHistoryPrefs(showTags);
+    cleanupShowPrefs = onCleanup(@() localRmHistoryPrefs(showTags));
+    figD = uifigure('Visible', 'off', 'Tag', 'benchTrialBoundaryDisplays');
+    cleanupFigD = onCleanup(@() delete(figD));
+    gD = uigridlayout(figD, [1 3]);
+    stair = psychophysics.Staircase(RUNTIME, W(1));
+    cleanupStair = onCleanup(@() delete(stair));
+    stair.Plot(uiaxes(gD));
+    hist_ = gui.components.History(stair, uipanel(gD), PreferenceTag = showTags{1});
+    scat_ = gui.components.ParameterScatter(RUNTIME, uipanel(gD), PreferenceTag = showTags{2});
+    cleanupShow = onCleanup(@() localDelete([{hist_} {scat_}]));
+end
+RUNTIME.EVENTS.DeferralEnabled = options.DeferDisplays;
 
 % --- Counters ---------------------------------------------------------------
 sink = CountingLogSink();
@@ -306,10 +340,28 @@ m('n') = m('n') + 1;
 end
 
 function localDelete(h)
-try
-    h = h(isvalid(h));
-    delete(h);
-catch
+% h is a handle array, or a cell of handles of different classes.
+if ~iscell(h), h = {h}; end
+for k = 1:numel(h)
+    try
+        x = h{k};
+        delete(x(isvalid(x)));
+    catch
+    end
+end
+end
+
+function localRmHistoryPrefs(tags)
+% The displays remember themselves by PreferenceTag; a benchmark must not
+% leave that behind, nor start from what an earlier run left.
+groups = {'epsych2_gui_History', 'epsych2_gui_ParameterScatter'};
+for g = 1:numel(groups)
+    for k = 1:numel(tags)
+        try
+            if ispref(groups{g}, tags{k}), rmpref(groups{g}, tags{k}); end
+        catch
+        end
+    end
 end
 end
 

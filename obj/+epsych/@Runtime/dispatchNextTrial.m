@@ -127,6 +127,13 @@ if timed, ts.mark("trigger"); end
 % not part of it.
 clear endDispatch
 
+% The trial has started. Whatever the displays set aside while it was being
+% prepared is drawn now, and before the NewTrial event, so every listener
+% still sees a trial's data arrive before the next trial is announced
+% (epsych.EventHub.defer). Nothing is queued outside a trial boundary.
+obj.EVENTS.flushDeferred();
+if timed, ts.mark("render"); end
+
 % 5. Notify whomever is listening of new trial
 evtdata = epsych.TrialsData(T);
 obj.EVENTS.notify('NewTrial',evtdata);

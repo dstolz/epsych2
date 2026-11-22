@@ -164,9 +164,21 @@ classdef History < gui.PopOut
                 % Listener first, then psychObj: set.psychObj validates and
                 % renders, so assigning it last makes that the single initial
                 % render rather than one before the listener exists.
-                obj.hl_NewData = listener(pObj.Events,'NewData',@obj.update);
+                obj.hl_NewData = listener(pObj.Events,'NewData',@(~,~) obj.scheduleUpdate_());
                 obj.psychObj = pObj;
             end
+        end
+
+        function scheduleUpdate_(obj)
+            % scheduleUpdate_(obj)
+            % A trial arrived. Rewriting the table is display work: during a
+            % session it is handed to the hub, which runs it once the next
+            % trial has been dispatched instead of while the subject waits
+            % (epsych.EventHub.defer). Offline, standalone or in a review
+            % there is no trial boundary and it runs here and now. update
+            % reads the analysis object's DATA when it runs, which is current
+            % either way: the analysis is never deferred.
+            epsych.EventHub.deferFor(obj.psychObj, obj, 'History.update', @() obj.update());
         end
 
         function delete(obj)

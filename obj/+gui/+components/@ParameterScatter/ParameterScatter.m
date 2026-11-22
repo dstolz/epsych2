@@ -269,7 +269,8 @@ classdef ParameterScatter < gui.PopOut
             % update(obj, ~, ~)
             % Refresh the selectable parameter lists and redraw the scatter.
             if isempty(obj.AxesH) || ~isvalid(obj.AxesH), return; end
-            vprintf(4,'Updating ParameterScatter')
+            % No per-update vprintf: the log takes every level by default, so
+            % a trace record here was a dbstack and a file write per trial.
 
             D = obj.currentData_;
             avail = obj.availableParameters_(D);
@@ -313,7 +314,12 @@ classdef ParameterScatter < gui.PopOut
                 % Event without box information; accept it.
             end
             obj.DATA_ = event.Data.DATA;
-            obj.update;
+
+            % Taking the data is all that has to happen now. The redraw is
+            % display work: during a session the hub runs it once the next
+            % trial has been dispatched (epsych.EventHub.defer); with no
+            % runtime, or outside a trial boundary, it runs at once.
+            epsych.EventHub.deferFor(obj.Runtime_, obj, 'ParameterScatter.update', @() obj.update());
         end
 
         function onSelectionChanged(obj,~,~)

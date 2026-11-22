@@ -90,6 +90,16 @@ for i = 1:RUNTIME.NSubjects
     RUNTIME.TRIALS(i).selector.onComplete(RUNTIME.TRIALS(i).NextTrialID, data);
     if timed, ts.mark("onComplete"); end
 
+    % From here until the NewTrial pulse has gone out, a display may hand its
+    % drawing to the hub instead of doing it while the subject waits
+    % (epsych.EventHub.defer); dispatchNextTrial runs what was handed over
+    % as soon as the trial has started. Analysis is not deferred -- what the
+    % next trial may depend on still runs inside NewData. A no-op unless the
+    % session asked for it. The guard closes the boundary on every way out
+    % of this iteration, so a failed dispatch cannot leave work queued.
+    RUNTIME.EVENTS.beginDeferral();
+    deferralGuard = onCleanup(@() localFlushDeferred(RUNTIME));
+
     % Broadcast event data has been updated
     evtdata = epsych.TrialsData(RUNTIME.TRIALS(i));
     RUNTIME.EVENTS.notify('NewData',evtdata);
@@ -159,8 +169,24 @@ for i = 1:RUNTIME.NSubjects
 
     % --- End of trial processing, now next trial is selected and ready to dispatch on the next timer tick ---
     RUNTIME.dispatchNextTrial(i);
+    clear deferralGuard
     if timed, ts.boundaryEnd(); end
 
+end
+
+end
+
+
+function localFlushDeferred(RUNTIME)
+% Close the deferral boundary. dispatchNextTrial normally has already, and
+% then this finds nothing to do.
+try
+    if isvalid(RUNTIME) && ~isempty(RUNTIME.EVENTS) && isvalid(RUNTIME.EVENTS)
+        RUNTIME.EVENTS.flushDeferred();
+    end
+catch ME
+    vprintf(0, 1, ME);
+end
 end
 
 

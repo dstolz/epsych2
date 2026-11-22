@@ -548,8 +548,14 @@ classdef SessionPerformance < gui.PopOut
             % from the runtime: psychophysics.Psych re-emits NewData after it
             % has recomputed, so the panel never has to assume anything about
             % the order in which two listeners on the runtime would fire.
+            %
+            % Writing the labels is display work: during a session the hub
+            % runs it once the next trial has been dispatched, otherwise at
+            % once (epsych.EventHub.defer). The analysis itself has already
+            % recomputed by the time this fires and is never deferred.
             A = obj.Analysis;
-            obj.hl_NewData_ = listener(A.Events, 'NewData', @(~,~) obj.refresh());
+            obj.hl_NewData_ = listener(A.Events, 'NewData', ...
+                @(~,~) epsych.EventHub.deferFor(obj.Analysis, obj, 'SessionPerformance.refresh', @() obj.refresh()));
 
             % Covers programmatic window changes made on the analysis object
             % directly, not just through this component.

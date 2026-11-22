@@ -164,6 +164,18 @@ switch COMMAND
         end
         self.IdleCheckTic_ = [];
 
+        % Displays may draw after the next trial has started instead of
+        % before it (epsych.EventHub.defer). A behavior GUI asks for that
+        % itself (gui.BehaviorGUI.deferDisplayWork); this preference asks
+        % for it on every session of the rig, whatever the GUI. The hub is
+        % new each Run, so nothing carries over from the last one.
+        if ispref('EPsych', 'DeferDisplays')
+            v = getpref('EPsych', 'DeferDisplays');
+            if isscalar(v) && (islogical(v) || isnumeric(v)) && logical(v)
+                self.RUNTIME.EVENTS.DeferralEnabled = true;
+            end
+        end
+
         % Trial-loop timing is recorded only when asked for (preference
         % EPsych/TickStats); see epsych.TickStats. Reported at Stop.
         if epsych.TickStats.enabledByPref()

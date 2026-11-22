@@ -464,6 +464,21 @@ classdef NAFC < psychophysics.Psych & gui.PopOut
 
         function afterRefresh_(obj)
             % Redraw the plot after every recompute when enabled.
+            %
+            % The redraw is display work: during a session the hub runs it
+            % once the next trial has been dispatched rather than while the
+            % subject waits; offline or outside a trial boundary it runs at
+            % once (epsych.EventHub.defer). The analysis above it is not
+            % deferred.
+            if obj.plotEnabled_
+                epsych.EventHub.deferFor(obj.RUNTIME, obj, 'NAFC.plot', ...
+                    @() obj.redrawIfEnabled_());
+            end
+        end
+
+        function redrawIfEnabled_(obj)
+            % The deferred half of afterRefresh_; the plot may have been
+            % switched off between the request and its turn.
             if obj.plotEnabled_
                 obj.updatePlot_();
             end

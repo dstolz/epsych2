@@ -5,7 +5,8 @@ function updatePlot_(obj)
 % Parameters:
 %   obj — psychophysics.Staircase instance
 
-vprintf(4, 'Updating psychophysics.Staircase plot')
+% No per-update vprintf: the log takes every level by default, so a trace
+% record here was a dbstack and a file write on every trial.
 
 if isempty(obj.plotAxes_) || ~isvalid(obj.plotAxes_)
     return

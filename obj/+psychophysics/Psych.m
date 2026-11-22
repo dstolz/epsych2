@@ -115,7 +115,9 @@ classdef (Abstract) Psych < handle & matlab.mixin.SetGet
             % Parameters:
             %   event   - Event payload containing event.Data.DATA.
             obj.DATA = event.Data.DATA;
-            vprintf(4, '%s received NewData event with %d trials', class(obj), numel(obj.DATA));
+            % No per-event vprintf: this runs for every analysis object on
+            % every trial, between the trial ending and the next one being
+            % dispatched, and the log takes every level by default.
 
             obj.recomputeResults_();
             obj.afterRefresh_();

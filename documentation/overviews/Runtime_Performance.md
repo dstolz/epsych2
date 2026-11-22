@@ -45,6 +45,24 @@ The report gives the wait per trial (median, 95th percentile, maximum), each
 phase, tick durations and overruns. See
 [epsych_TickStats.md](../epsych/epsych_TickStats.md).
 
+**On a rig, a whole session with no animal.** `tmp/bench_rig_preview.m` runs a
+Preview of one roster subject through `epsych.RunExpt` — its own membership,
+protocol, circuit and behavior GUI — with a simulated subject completing the
+trials, and reports each boundary's wait, its phases, how long graphics held
+the thread after it, and whether any of that grew over the session.
+
+```matlab
+addpath(fullfile(EPsychInfo.root, 'tmp'))
+bench_rig_preview(Subject="SUBJ-ID-1171", NumTrials=250, ProfileTrials=20)
+```
+
+The hardware runs: sound plays and the pellet dispenser fires on about two
+trials in three. The lab's roster is only read, and no data file is written.
+The simulated subject (`tmp/RigPreviewSubject.m`) drives the appetitive
+platform circuit, where the response is *leaving the platform* during the
+response window. `ProfileTrials` adds trials under the MATLAB profiler,
+reported per function and per line of the toolbox's own files.
+
 **Without hardware.** `tmp/bench_trial_boundary.m` drives the real loop
 against a counting stand-in for the device and reports device calls, log
 records and milliseconds per phase. The counts do not depend on the machine;
@@ -81,6 +99,7 @@ first column is where to ask.
 | **Record a stimulus as its settings, not the stimulus object**, on the same tab; `RUNTIME.RecordStimulusSettings` in a script | off | Ticked, a `StimType` value is recorded as its settings, not as the live object. |
 | `hw.NE1000.SettingsCacheInterval` | 0 (off) | A setting the pump reported answers the next read of it for this many seconds. |
 | `setpref('EPsych','StopOnIdleHardware',true)` | off | A multi-interface session stops when an interface reports Idle. |
+| `setpref('EPsych','WarmUp',false)` | **on** | Off: the first Run or Preview after MATLAB starts does not rehearse a few trial boundaries on a software-only session first (`epsych.warmUp`, about 2 s). |
 | `setpref('EPsych','TickStats',true)` | off | Trial-loop timing, reported at Stop. |
 | `GLogVerbosity` | `Inf` | What the log file takes. At 3, trace records cost microseconds instead of being written. |
 
@@ -122,6 +141,31 @@ setpref('EPsych', 'DeferDisplays', true)
 
 Run one Preview with `EPsych/TickStats` on before and after to see what each
 bought on that rig.
+
+### The first boundaries after MATLAB starts
+
+The first trial boundaries of the first session after MATLAB starts are
+several times slower than the rest, because MATLAB is running that code for
+the first time. On the rig the subject waited 384, 184, 119 and 126 ms at the
+first four boundaries against 75 ms later; a second session in the same MATLAB
+started at 167 ms and was at 80 ms by its second trial.
+
+`epsych.warmUp` runs that code beforehand: the real trial loop over a small
+`hw.Software` protocol built for the purpose, with a staircase and session
+metrics listening, for six boundaries. `epsych.RunExpt` calls it at the first
+Run or Preview of a MATLAB session, before the hardware starts; it takes about
+2 s and does nothing afterwards. Nothing of the real session is touched. A
+paradigm's own trial selector and behavior GUI, and the hardware backend, are
+not rehearsed, so the first real boundary is still the slowest.
+
+`epsych.warmUp(Displays=true)` also builds and draws one of each standard
+display in a hidden window. That is most of what a first boundary costs the
+MATLAB thread, and it takes about 12 s, so `RunExpt` does not do it; call it by
+hand, or from a startup file, when there is idle time before a session.
+
+Sessions run at **High process priority**. `RunExpt` sets it at every Run
+through .NET; until 2026-11 it used `wmic`, which current Windows no longer
+has, and the call failed without a sign.
 
 ### Displays after the trigger
 
@@ -220,6 +264,48 @@ is mostly MATLAB. Through `hw.Parameter`: a read went from 362 µs to 122 µs, a
 mode read from 122 µs to under 1 µs between refreshes, and an idle tick from
 546 µs to 176 µs.
 
+**A whole session** (`tmp/bench_rig_preview.m`, 2026-11-22: the lab's
+appetitive platform protocol on the RZ6, 46 parameters,
+`cl_AppetitiveDetection_BehaviorGUI` with displays deferred, a 25 ms timer, a
+trial every 5.5 s). Medians per trial boundary, after the first five. The
+first column is the review's changes alone (250 trials); the second adds the
+follow-up of the same day — the kept expression plan, table column weights,
+the colorbar label handle, the monitor's name list, the clock's tick, High
+process priority (100 trials):
+
+| ms, most boundaries | Review | With the follow-up |
+|---|---|---|
+| Subject waits | 83 | 64 |
+| of which parameter writes | 55 | 39 |
+| of which analysis (`newData`) | 10.5 | 9.7 |
+| Displays, after the pulse (`render`) | 32 | 26 |
+| Graphics holding the thread after the tick | 124 | 94 |
+| MATLAB thread taken per boundary | 260 | 197 |
+| An idle tick | 0.29 | 0.22 |
+
+- **Nothing grew with the session.** Over the 250 trials, first block of 50
+  to last: `render` 35 → 33 ms, `newData` 10 → 11 ms, graphics hold
+  121 → 128 ms. The wait went 79 → 91 ms, nearly all of it in the parameter
+  writes.
+- **Before the review's changes**, the same Preview made the subject wait
+  390 ms (two runs of 40 trials each way, alternated).
+- **The first boundary** of the first session after MATLAB starts cost the
+  subject 380–570 ms without the warm-up and about 300 ms with it (three
+  runs), and took the MATLAB thread for 3.1 s and 2.0 s. The few after it are
+  dominated by whether they happen to be slow ones, below.
+
+**Some boundaries run 5–7 times slower in every phase at once**, at random,
+with MATLAB using about twice the wall time in CPU: 450 ms of wait in place of
+83, or 374 in place of 64. It is not from any of these changes — the code
+before the review does it too, at about 1.9 s of wait — and it is not the
+trial's outcome, a headless session, the Trial State monitor, page faults,
+software rendering, the time since the last trial, or process priority. The
+share moves about: 20% over the 250-trial run (6% to 28% by block of 50), 8%
+to 11% in three later runs of 100, half of all boundaries with two stray
+renderer processes pinning cores. The rig that day had 15.7 GB of RAM against
+23.5 GB committed. The cause is not known. At 20% it lifts the mean wait from
+83 to 160 ms and the 95th percentile to 482 ms.
+
 **Counted on the benchmark** (`bench_trial_boundary(NumControls=20,
 CallDelay=200e-6)`: 40 writable parameters, 20 read-only, 2 expressions, 20
 on-screen controls, 200 µs per device call):
@@ -273,6 +359,19 @@ In rough order of what it costs when present:
   value changes.
 - No `vprintf` per trial in a display: the log takes every level by default,
   and each record is a `dbstack` and a file write.
+- Give a `uitable` that is rewritten every trial explicit column widths
+  (`ColumnWidth = '1x'`, weights such as `{'5x','13x'}`, or pixels). With the
+  default `'auto'`, every `Data` assignment makes MATLAB measure the cell text
+  of each column again and resend the column model. `gui.components.History`
+  measures its own columns in characters and rewrites the weights only when
+  one needs more room.
+- Keep a handle to a graphics child that is reached through a getter.
+  `ColorBar.Label` runs the colorbar's getter at every read; two reads per
+  redraw were over a third of what the parameter scatter cost.
+- A polling display rebuilds per poll only what a poll can change. Names,
+  visibility and layout follow configuration, not time: the Trial State
+  monitor rebuilt its name list ten times a second, and the session clock
+  re-applied row visibility, row heights and menu check marks every second.
 
 ## Related
 

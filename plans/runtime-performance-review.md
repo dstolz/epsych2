@@ -582,10 +582,16 @@ The benchmark with 20 controls at 200 µs per call: 470 device calls per trial
 - **The redesigns** (a device-side trial record, latch-on-NewTrial
   parameters) need RPvds circuit changes and were not attempted.
 - **Not validated on hardware:** `hw.TDT_Synapse` (mock only), `hw.NE1000`
-  (mock only), a full `epsych.RunExpt` session with the lab's protocol and
-  behavior GUI, and the trigger pulse width on a scope. The benchmark circuit
+  (mock only), and the trigger pulse width on a scope. The benchmark circuit
   has no trial triggers, so on the RZ6 those three lived on the software
   module.
+- **Validated since (2026-11-22):** a full `epsych.RunExpt` session with the
+  lab's protocol and behavior GUI — 250 trials of a real Preview on the RZ6,
+  `tmp/bench_rig_preview.m`. The subject's wait went from 390 ms to 83 ms and
+  nothing grew over the session. It also showed one boundary in five running
+  5–7 times slower in every phase, which this work neither caused nor cured;
+  see "A whole session" in
+  [Runtime_Performance.md](../documentation/overviews/Runtime_Performance.md).
 - **Pre-existing failures**, unchanged by this work and failing the same way
   on `master`: `smoke_test_expression_check`, two checks of
   `smoke_test_staircase_weighted_toggle`, and

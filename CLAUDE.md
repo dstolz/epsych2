@@ -112,8 +112,19 @@ Rules that matter:
 ### Core Classes & Their Roles
 
 #### obj/+epsych/ – Experiment Framework
-- **epsych.RunExpt** (440 lines): Main session GUI; manages CONFIG (subject/protocol), RUNTIME state, and program transitions
-- **epsych.Runtime** (120+ lines): Central state container; holds HW interfaces, TRIALS, EVENTS (event broadcaster), and TIMER
+- **epsych.RunExpt** (440 lines): Main session GUI; manages CONFIG (subject/protocol), RUNTIME state, and program transitions.
+  Closing the window mid-run stops the session through `ExptDispatch("Stop")`,
+  the Stop control's own path, before anything is torn down; `delete(rx)` runs
+  the same close sequence without the question (`onCloseRequest(false)`), so a
+  script or a test that deletes the object gets the window closed and the
+  hardware released. Two traps behind that, fixed 2026-11-22: `isvalid(self)`
+  is already FALSE inside a handle's `delete`, so a destructor guarded by it
+  does nothing; and `isfield` on an object is always false, which is how the
+  close sequence never reached its own timer stop
+- **epsych.Runtime** (120+ lines): Central state container; holds HW interfaces, TRIALS, EVENTS (event broadcaster), and TIMER.
+  `TIMER` is `timer.empty` until a run creates one (test `isempty` before
+  `isvalid`): a `(1,1) timer` property makes MATLAB construct a timer when the
+  class loads, shared by every instance and deleted by nothing
 - **epsych.Protocol** (212 lines): Data model for experiment; owns hw.Interface objects, parameters, compiled trials
 - **epsych.ProtocolDesigner** (326 lines): GUI for building protocols (~57 UI callbacks)
 - **epsych.EventHub**: Lightweight event broadcaster (NewData, NewTrial, ModeChange)
@@ -1707,6 +1718,24 @@ re-derive:
   `tmp/CountingProbeInterface.m`, which COUNTS device calls so the answer does
   not depend on the machine. `epsych.TickStats` (preference
   `EPsych/TickStats`) times the phases of a real session and reports at Stop.
+- **A real session is measured by `tmp/bench_rig_preview.m`**: a Preview of
+  one roster subject through `epsych.RunExpt` on the rig's own hardware, with
+  `tmp/RigPreviewSubject.m` as the animal and `tmp/bench_rig_report.m` reading
+  the result. `tmp/bench_rig_tick.m` wraps the RunTime function to stamp tick
+  starts, which is the only way to see graphics holding the thread AFTER a
+  boundary's callback has returned. Three things it rests on: in the
+  appetitive platform circuit the response is LEAVING THE PLATFORM
+  (`ManualTrigger` to 0 during `RespWindow`), not the trough — a held platform
+  spoof scores a Miss, and a correct reject completes only at `SpoofTrough`;
+  `RUNTIME.P` holds no trigger parameters, so it resolves them as
+  `gui.BehaviorGUI` does (`all_parameters(includeTriggers=true)`); and it
+  swaps the saving function for `ep_SaveDataFcn`, because a lab's own
+  (`cl_SaveDataFcn`) has no Preview guard and writes into the animal's data
+  folder. It fires the real pellet dispenser. On the rig in 2026-11 most
+  boundaries cost the subject ~83 ms (390 ms before the review's changes)
+  with nothing growing over 250 trials, and one in five ran 5-7x slower in
+  every phase at once — before and after those changes, cause not found
+  (documentation/overviews/Runtime_Performance.md, "A whole session").
 - **No `pause` or `drawnow` inside the boundary.** It does not let other
   timers in, but it renders every pending graphics update there (24 ms
   measured for one table change). Triggers hold their pulse with
@@ -1738,7 +1767,39 @@ re-derive:
 - **An Expression reads only the siblings its text names** (a plain identifier
   scan in `hw.Parameter.resolveExpressionContext`). It still reads them from
   the DEVICE; using the host value would change what the expression sees
-  wherever a value is coerced.
+  wherever a value is coerced. **How the text resolved is kept**
+  (`hw.Parameter.ExpressionPlan_`, from the resolver's fourth output): the
+  rewriting gives the same answer every trial and was most of an Expression's
+  cost, so `evaluateExpression_` rebuilds the context from the kept bindings
+  and re-reads only the values. The plan is dropped the moment it stops
+  describing the expression — different text, different sibling objects, a
+  different number of parameters in scope, a bound parameter deleted — and a
+  failed read falls back to the resolver. The earlier objection to caching
+  (invalidation) is answered by checking identity at every use rather than
+  trying to be told (`tmp/smoke_test_expression_plan.m`).
+- **The first boundaries after MATLAB starts are slow because the code is
+  new to MATLAB**, not to the session: 384/184/119/126 ms of wait at the
+  first four on the rig, 167/82/76 in a second session of the same MATLAB.
+  `epsych.warmUp` rehearses six boundaries of the real loop on an
+  `hw.Software` protocol with a staircase and session metrics listening;
+  `RunExpt.ExptDispatch` calls it at the first Run or Preview (about 2 s,
+  preference `EPsych/WarmUp = false` to refuse). It deliberately stops
+  there: `Displays=true` also builds and draws the standard displays in a
+  hidden window, which is most of a first boundary's thread time but takes
+  about 12 s — far more than it saves in front of a Run. A paradigm's own
+  selector and GUI, and the backend, cannot be rehearsed without touching
+  the session (`tmp/smoke_test_warmup.m`).
+- **High process priority is set through .NET** (`RunExpt.raisePriority_`).
+  The `wmic` command it replaced is gone from current Windows, and `dos()`
+  hid the failure, so sessions had been running at Normal priority.
+- **A per-trial `uitable` needs explicit column widths.** With the default
+  `'auto'` every `Data` assignment makes MATLAB measure each column's cell
+  text and resend the column model (`MWTableDataStore.setMinimumWidthCellContent`
+  runs only for `'auto'`/`'fit'`). `gui.components.NextTrial` sets `'1x'`;
+  `gui.components.History` sets WEIGHTS it measures itself (`fitColumns_`:
+  characters per column, written only when a column needs more than it has,
+  so a handful of times a session), because equal shares truncated the long
+  columns in anything but a maximized window.
 - **Deferred display work** (`epsych.EventHub.defer`/`deferFor`): a display
   hands its drawing to the hub, which runs it at once unless a trial boundary
   is open, and then right after the NewTrial pulse, before the NewTrial

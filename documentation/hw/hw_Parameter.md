@@ -632,13 +632,30 @@ runtime evaluation cannot drift apart.
   (e.g. pointing a module at a different RPvds file) rebuilds a module and
   replays every parameter's `Value`. Headless coverage:
   `tmp/smoke_test_crossinterface_expression_restore.m`.
-- `resolveExpressionContext` reads *every* sibling, referenced or not, so the
-  value lookup runs against parameters the expression never mentions. The
-  runtime lookup therefore falls back to `Values{1}` for write-only
-  parameters, matching `analyzeExpressions` and `orderByDependencies`;
-  otherwise one unreadable sibling would log on every dispatch and put `NaN`
-  into the context. Headless coverage:
-  `tmp/smoke_test_writeonly_parameter_reads.m`.
+- `resolveExpressionContext` reads the siblings whose names appear in the
+  text, by a plain identifier scan, so a sibling can be read that the
+  expression only names as a function. The runtime lookup therefore falls
+  back to `Values{1}` for write-only parameters, matching
+  `analyzeExpressions` and `orderByDependencies`; otherwise one unreadable
+  sibling would log on every dispatch and put `NaN` into the context.
+  Headless coverage: `tmp/smoke_test_writeonly_parameter_reads.m`.
+- **The resolved form is kept between evaluations.** Resolving the text —
+  finding the parameters it names, rewriting `Module.Parameter` tokens — gives
+  the same answer on every trial, and it was most of what an Expression cost
+  (two expressions took a third of a trial's dispatch-write time on the rig).
+  `resolveExpressionContext` returns a fourth output, `plan`: the rewritten
+  text and one binding per context variable (which parameter, which property,
+  and whether it is bound only for a numeric, logical or text value).
+  `evaluateExpression_` keeps it on the parameter (`ExpressionPlan_`, private
+  and transient) and from then on rebuilds the context from the bindings,
+  reading every value afresh by the same rules. The plan is used only while it
+  still describes the expression: the same text, the same sibling objects in
+  the same order, the same number of parameters in scope when the text
+  reaches outside the module, and every bound parameter still valid. An
+  edited Expression, a parameter a selector adds, or a module rebuilt on
+  connect resolves afresh; a read that fails falls back to the resolver, which
+  handles it as before. Design-time tools call the resolver directly and are
+  unaffected. Standing proof `tmp/smoke_test_expression_plan.m`.
 - Expression errors produce an `hw:Parameter:ExpressionError` exception with the
   parameter name and the underlying MATLAB error message. Context-build failures
   (e.g., module not accessible) are logged at verbosity level 0 and do not abort

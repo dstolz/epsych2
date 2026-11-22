@@ -46,14 +46,44 @@ if ~selectsIndex && numel(obj.Values) > 1
     return
 end
 
-% Lookups run inside the resolver's try/catch, so a failure while gathering
-% siblings or interface parameters degrades to a partial context with a
-% logged warning rather than aborting evaluation.
-[rewrittenText, context] = hw.Parameter.resolveExpressionContext( ...
-    expressionText, currentValue, obj, ...
-    @() obj.Module.Parameters, ...
-    @() localCollectAllParams_(obj.Module), ...
-    @localContextValue_);
+% Resolving the text -- finding which parameters it names, rewriting
+% Module.Parameter tokens to aliases -- gives the same answer on every trial,
+% and it was most of what an Expression cost: on the rig two expressions took
+% a third of a trial's whole dispatch-write time, nearly all of it here and
+% not in reading the values. So the resolver's answer is kept on the
+% parameter (ExpressionPlan_) and only the VALUES are read again. Every value
+% an expression sees is still read at evaluation, from the same place.
+%
+% The plan is used only while it provably still describes this expression:
+% the same text, the same sibling objects in the same order, and, where the
+% text reaches outside the module, the same number of parameters in scope.
+% Anything else -- an edited Expression, a parameter added by a selector, a
+% module rebuilt on connect -- resolves afresh.
+planned = false;
+plan = obj.ExpressionPlan_;
+if localPlanFits_(obj, plan, expressionText)
+    try
+        context = localContextFromPlan_(plan, currentValue);
+        rewrittenText = plan.rewrittenText;
+        planned = true;
+    catch
+        % A value could not be read. The resolver below reads again and
+        % reduces the failure to its logged warning and a partial context,
+        % exactly as it always has.
+    end
+end
+
+if ~planned
+    % Lookups run inside the resolver's try/catch, so a failure while
+    % gathering siblings or interface parameters degrades to a partial
+    % context with a logged warning rather than aborting evaluation.
+    [rewrittenText, context, ~, plan] = hw.Parameter.resolveExpressionContext( ...
+        expressionText, currentValue, obj, ...
+        @() obj.Module.Parameters, ...
+        @() localCollectAllParams_(obj.Module), ...
+        @localContextValue_);
+    obj.ExpressionPlan_ = localKeepPlan_(obj, plan, expressionText);
+end
 
 result = hw.Parameter.evalExpressionInContext(rewrittenText, context, obj.Name);
 
@@ -79,6 +109,89 @@ function v = localContextValue_(p)
         return
     end
     v = p.Value;
+
+
+function tf = localPlanFits_(obj, plan, expressionText)
+% Whether a kept plan still describes this parameter's expression.
+    tf = false;
+    if ~isstruct(plan) || ~strcmp(plan.text, expressionText)
+        return
+    end
+    siblings = obj.Module.Parameters;
+    if numel(siblings) ~= numel(plan.siblings) || ~all(siblings == plan.siblings)
+        return
+    end
+    if plan.usesAllParams && localCountAllParams_(obj.Module) ~= plan.numAll
+        return
+    end
+    B = plan.bindings;
+    for k = 1:numel(B)
+        if ~isvalid(B(k).param)
+            return
+        end
+    end
+    tf = true;
+
+
+function kept = localKeepPlan_(obj, plan, expressionText)
+% The resolver's plan with what localPlanFits_ checks it against, or [] when
+% the resolver could not finish: a partial plan must not be reused.
+    kept = [];
+    if ~plan.complete
+        return
+    end
+    kept = plan;
+    kept.text = expressionText;
+    kept.siblings = obj.Module.Parameters;
+    kept.numAll = 0;
+    if plan.usesAllParams
+        % NaN (the scope could not be counted) equals nothing, so such a
+        % plan is never reused.
+        kept.numAll = localCountAllParams_(obj.Module);
+    end
+
+
+function context = localContextFromPlan_(plan, currentValue)
+% The context resolveExpressionContext would build, from a kept plan: the
+% same variables, bound in the same order, by the same rules.
+    context = struct('Value', currentValue);
+    B = plan.bindings;
+    for k = 1:numel(B)
+        if isempty(B(k).prop) || strcmp(B(k).prop, 'Value')
+            v = localContextValue_(B(k).param);
+        else
+            v = B(k).param.(B(k).prop);
+        end
+        if B(k).simpleOnly && ~(isnumeric(v) || islogical(v) || ischar(v) || isstring(v))
+            continue
+        end
+        context.(B(k).name) = v;
+    end
+
+
+function n = localCountAllParams_(thisModule)
+% How many parameters localCollectAllParams_ would return, without gathering
+% them. NaN when the scope cannot be walked.
+    n = 0;
+    try
+        iface = thisModule.parent;
+        if ~isempty(iface.Runtime) && isvalid(iface.Runtime)
+            interfaces = iface.Runtime.Interfaces;
+            for a = 1:numel(interfaces)
+                modules = interfaces(a).Module;
+                for b = 1:numel(modules)
+                    n = n + numel(modules(b).Parameters);
+                end
+            end
+        else
+            modules = iface.Module;
+            for b = 1:numel(modules)
+                n = n + numel(modules(b).Parameters);
+            end
+        end
+    catch
+        n = NaN;
+    end
 
 
 function allParams = localCollectAllParams_(thisModule)

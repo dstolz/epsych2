@@ -152,6 +152,12 @@ classdef Parameter < matlab.mixin.SetGet
         % object loaded from a MAT file starts with, since the constructor
         % does not run for it); see parentKind_.
         ParentKind_ (1,1) double = -1
+
+        % How Expression resolved the last time it was evaluated: its text
+        % with references rewritten, and which parameter each one reads.
+        % evaluateExpression_ reuses it for as long as it still describes
+        % the expression, re-reading only the values. [] = none kept.
+        ExpressionPlan_ = []
     end
 
     properties (Dependent)
@@ -181,7 +187,7 @@ classdef Parameter < matlab.mixin.SetGet
 
         % Shared expression-evaluation core used by the runtime (set.Value) and
         % design-time tools (Protocol Designer calculation checker)
-        [rewrittenText, context, info] = resolveExpressionContext(expressionText, currentValue, targetParam, siblingsFcn, allParamsFcn, valueFcn)
+        [rewrittenText, context, info, plan] = resolveExpressionContext(expressionText, currentValue, targetParam, siblingsFcn, allParamsFcn, valueFcn)
         result = evalExpressionInContext(rewrittenText, context, targetName)
         order = orderByDependencies(dispatchParams, allParams) % permutation placing expression parameters after the dispatched parameters whose values they read
         tf = expressionSelectsIndex(type) % true when an Expression on this Type indexes into Values instead of producing the value

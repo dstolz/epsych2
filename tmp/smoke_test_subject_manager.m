@@ -853,12 +853,13 @@ function built = localDriveProjectDialog(control, name, tagPrefix)
 % dialog (the membership dialog opens from a menu item, which has no
 % ButtonPushedFcn); tagPrefix defaults to the project dialog's.
 %
-% projectDialog_ blocks in uiwait, so nothing written after the click runs until
-% the dialog closes; the inspection has to happen in a timer callback, which
-% fires on the same event queue uiwait is pumping. The timer repeats instead of
-% firing once, and its StopFcn deletes whatever is still standing: a probe that
-% merely missed the window would otherwise hang this test forever rather than
-% fail it.
+% projectDialog_ blocks until it is answered, so nothing written after the click
+% runs until the dialog closes; the inspection has to happen in a timer
+% callback, which fires on the event queue the wait is pumping. The timer
+% repeats instead of firing once, and its StopFcn deletes whatever is still
+% standing: a probe that merely missed the window would otherwise hang this
+% test forever rather than fail it. (Pressing Cancel deletes the dialog, so
+% after an answered probe there is normally nothing left for it to delete.)
 built = struct('found', false, 'links', 0, 'hasArchived', false, ...
     'tabs', strings(1,0), 'fields', struct());
 

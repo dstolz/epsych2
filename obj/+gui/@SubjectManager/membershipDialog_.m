@@ -61,7 +61,13 @@ uilabel(gButtons, 'Text','');
 uibutton(gButtons, 'Text','OK', 'ButtonPushedFcn', @(~,~) onOK());
 uibutton(gButtons, 'Text','Cancel', 'ButtonPushedFcn', @(~,~) onCancel());
 
-uiwait(dlg);
+% Every answer ends by deleting the window, so wait for exactly that.
+% waitfor rather than uiwait: building and showing a uifigure yields, so a
+% timer (or a fast click) can answer the dialog in the instant before the
+% wait. waitfor then returns at once; uiwait yields again first and throws
+% on the deleted handle, and an answer given before it started -- uiresume
+% with nothing waiting -- was simply lost. See gui.selectPhaseParameters.
+waitfor(dlg);
 
 if accepted
     M = result;
@@ -84,13 +90,13 @@ end
         S.remember(vals);
 
         accepted = true;
-        uiresume(dlg);
+        delete(dlg);
     end
 
 % -------------------------------------------------------------------
     function onCancel()
         accepted = false;
-        uiresume(dlg);
+        delete(dlg);
     end
 
 % -------------------------------------------------------------------

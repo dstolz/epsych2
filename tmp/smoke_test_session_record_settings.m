@@ -23,8 +23,9 @@ function smoke_test_session_record_settings
 %      last batch's; so does a batch with no project
 %   7) commit: stating the default and stating nothing agree; a real
 %      disagreement refuses the batch, names the field, and changes nothing
-%   8) a real Run: the runtime gets the study's values, and the session's
-%      Info records them
+%   8) a real session (a Preview, started from the session window's button):
+%      the runtime gets the study's values, and the session's Info records
+%      them
 %   9) an Info from before the fields existed reads as buffers recorded,
 %      stimuli as objects
 %
@@ -38,7 +39,12 @@ addpath(fullfile(here, '..', 'examples', 'detection_task'));
 
 fprintf('\n=== smoke_test_session_record_settings ===\n');
 
-% --- pref hygiene: the roster path is a machine preference ------------------
+% --- pref hygiene ------------------------------------------------------------
+% Snapshot and restore what a session window may write. This test never
+% repoints the machine's roster preference (ep_RunExpt_Subjects/RosterFile):
+% the roster is opened by path and subjects are committed through it
+% directly, so a MATLAB that dies part way cannot leave a rig aimed at a
+% temporary file -- which is what happened once while this test was written.
 groups = {'ep_RunExpt_FUNCS','ep_RunExpt_TIMER','ep_RunExpt_Subjects','ep_RunExpt_Setup','RunExpt'};
 saved = cellfun(@(g) localSavePrefs(g), groups, 'uni', 0);
 cleanupPrefs = onCleanup(@() localRestoreAll(groups, saved));
@@ -110,7 +116,6 @@ fprintf('PASS: 2 the accepted forms, and not-stated is the built-in default\n');
 
 % --- 3. a project stores them ------------------------------------------------
 rosterFile = fullfile(root, 'lab.esub');
-epsych.SubjectRoster.setConfiguredFile(rosterFile);
 R = epsych.SubjectRoster(rosterFile);
 
 plain = R.addProject('Plain Study', DefaultProtocol = protoFile, DefaultDataPath = dataRoot, ...
@@ -257,32 +262,20 @@ assert(isequal(before, {rx.FUNCS.RecordBuffers, rx.FUNCS.RecordStimulusSettings,
 delete(rx);
 fprintf('PASS: 7 the default and not-stated agree; a real disagreement refuses the batch\n');
 
-% --- 8. a real Run -----------------------------------------------------------
-rx = epsych.RunExpt("Lean Study", Subjects = "RS1", Run = true, ReuseExisting = false);
-assert(localWaitFor(@() rx.STATE == PRGMSTATE.RUNNING, 30), ...
-    'the session never reached RUNNING (got %s)', char(string(rx.STATE)));
-assert(rx.RUNTIME.RecordBuffers == false && rx.RUNTIME.RecordStimulusSettings == true, ...
-    'the runtime should run on the study''s settings');
-info = epsych.SessionSnapshot.forSubject(rx.RUNTIME, 1);
+% --- 8. a real session -------------------------------------------------------
+% Started the way the operator starts one: the batch commit, then the Preview
+% button (a preview saves nothing). Not epsych.RunExpt("<project>", Run=true),
+% which resolves the project through the machine's roster preference.
+[flags, info] = localPreview(R, s1, lean);
+assert(isequal(flags, [false true]), 'the runtime should run on the study''s settings');
 assert(islogical(info.RecordBuffers) && info.RecordBuffers == false ...
     && info.RecordStimulusSettings == true, ...
     'the session''s Info should record what its trial records hold');
-rx.halt;
-assert(localWaitFor(@() rx.STATE == PRGMSTATE.STOP, 30), ...
-    'halt never reached STOP (got %s)', char(string(rx.STATE)));
-delete(rx);
 
-rx = epsych.RunExpt("Plain Study", Subjects = "RS3", Run = true, ReuseExisting = false);
-assert(localWaitFor(@() rx.STATE == PRGMSTATE.RUNNING, 30), ...
-    'the second session never reached RUNNING (got %s)', char(string(rx.STATE)));
-assert(rx.RUNTIME.RecordBuffers == true && rx.RUNTIME.RecordStimulusSettings == false, ...
-    'a study that states nothing runs on the built-in defaults');
-info = epsych.SessionSnapshot.forSubject(rx.RUNTIME, 1);
+[flags, info] = localPreview(R, s3, plain);
+assert(isequal(flags, [true false]), 'a study that states nothing runs on the built-in defaults');
 assert(info.RecordBuffers == true && info.RecordStimulusSettings == false, 'and its Info says so');
-rx.halt;
-assert(localWaitFor(@() rx.STATE == PRGMSTATE.STOP, 30), 'halt never reached STOP');
-delete(rx);
-fprintf('PASS: 8 a real Run gets the study''s settings, and Info records them\n');
+fprintf('PASS: 8 a real session gets the study''s settings, and Info records them\n');
 
 % --- 9. an Info from before the fields ---------------------------------------
 old = rmfield(info, FLAGS);
@@ -294,10 +287,47 @@ assert(legacy.RecordBuffers == true && legacy.RecordStimulusSettings == false, .
     'so did a file from before the snapshot existed');
 fprintf('PASS: 9 an older Info reads as buffers recorded, stimuli as objects\n');
 
-epsych.SubjectRoster.setConfiguredFile('');
 fprintf('smoke_test_session_record_settings: ALL PASS\n');
 end
 
+
+% -----------------------------------------------------------------------
+function [flags, info] = localPreview(R, subjectId, projectId)
+% One subject of one project through a real Preview: what the runtime ran on
+% (RecordBuffers, RecordStimulusSettings) and the Info it would be saved with.
+delete(findall(groot, 'Type','figure', 'Tag','RunExpt'));
+rx = epsych.RunExpt(ReuseExisting = false);
+closer = onCleanup(@() localDelete(rx));
+
+rep = R.assignToSession(rx, {subjectId}, ProjectID = projectId, ReplaceExisting = true);
+assert(rep.ok, 'the commit should have succeeded: %s', rep.message);
+assert(rx.STATE >= PRGMSTATE.READY, 'the session is %s, not ready to run', char(string(rx.STATE)));
+
+rx.H.ctrl_preview.ButtonPushedFcn(rx.H.ctrl_preview, []);
+assert(localWaitFor(@() rx.STATE == PRGMSTATE.RUNNING, 30), ...
+    'the session never reached RUNNING (got %s)', char(string(rx.STATE)));
+
+% This code is not in a callback, so the 10 ms trial loop interleaves with
+% it. Let the timer's start function finish building the session, then read
+% two properties and nothing else while it runs.
+pause(1);
+flags = [rx.RUNTIME.RecordBuffers, rx.RUNTIME.RecordStimulusSettings];
+
+rx.halt;
+assert(localWaitFor(@() rx.STATE == PRGMSTATE.STOP, 30), ...
+    'halt never reached STOP (got %s)', char(string(rx.STATE)));
+
+% After the stop, with the trial loop gone, as a saving function reads it.
+info = epsych.SessionSnapshot.forSubject(rx.RUNTIME, 1);
+end
+
+% -----------------------------------------------------------------------
+function localDelete(h)
+try
+    if isvalid(h), delete(h); end
+catch
+end
+end
 
 % -----------------------------------------------------------------------
 function tf = localWaitFor(cond, timeoutSec)

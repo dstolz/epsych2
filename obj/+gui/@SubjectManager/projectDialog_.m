@@ -4,7 +4,7 @@ function P = projectDialog_(self, seed, options)
 % Modal dialog for a project's identity, its session-defaults template, links,
 % and archived flag.
 %
-% Shaped after epsych.DefaultSubject.open: modal uifigure, uiwait, [] on
+% Shaped after epsych.DefaultSubject.open: modal uifigure, blocking, [] on
 % cancel, Esc cancels and Ctrl+Enter accepts.
 %
 % Parameters:
@@ -165,8 +165,18 @@ uilabel(gButtons, 'Text','');
 uibutton(gButtons, 'Text','OK', 'ButtonPushedFcn', @(~,~) onOK());
 uibutton(gButtons, 'Text','Cancel', 'ButtonPushedFcn', @(~,~) onCancel());
 
-focus(efName);
-uiwait(dlg);
+% A convenience, and it yields: a timer may answer the dialog while it runs.
+try
+    focus(efName);
+catch
+end
+% Every answer ends by deleting the window, so wait for exactly that.
+% waitfor rather than uiwait: building and showing a uifigure yields, so a
+% timer (or a fast click) can answer the dialog in the instant before the
+% wait. waitfor then returns at once; uiwait yields again first and throws
+% on the deleted handle, and an answer given before it started -- uiresume
+% with nothing waiting -- was simply lost. See gui.selectPhaseParameters.
+waitfor(dlg);
 
 if accepted
     P = result;
@@ -233,7 +243,7 @@ end
         localRemember(PREFS, 'IACUCProtocol', result.IACUCProtocol);
 
         accepted = true;
-        uiresume(dlg);
+        delete(dlg);
     end
 
 % -------------------------------------------------------------------
@@ -307,7 +317,7 @@ end
 % -------------------------------------------------------------------
     function onCancel()
         accepted = false;
-        uiresume(dlg);
+        delete(dlg);
     end
 
 % -------------------------------------------------------------------

@@ -16,7 +16,12 @@ PREF_TAG = 'cl_AppetitiveDetection_BehaviorGUI';
 scatterPrefs = savedScatterPrefs();
 nextTrialPrefs = savedNextTrialPrefs(PREF_TAG);
 performancePrefs = savedComponentPrefs('epsych2_gui_SessionPerformance', PREF_TAG);
-cleanupObj = onCleanup(@() cleanupAll(PREF_TAG, scatterPrefs, nextTrialPrefs, performancePrefs));
+% The GUI saves its window position and state under its own Tag. That group
+% is the operator's on a rig: it is put back as found, not removed (removing
+% it reopened the lab GUI un-maximized at its default position after every
+% run of this test).
+layoutPrefs = savedGroupPrefs(PREF_TAG);
+cleanupObj = onCleanup(@() cleanupAll(PREF_TAG, scatterPrefs, nextTrialPrefs, performancePrefs, layoutPrefs));
 
 % The performance-panel assertions below expect the metrics build.m asks
 % for, so a selection saved by a real session must not leak into the test.
@@ -475,10 +480,10 @@ end
 end
 
 
-function cleanupAll(prefTag, scatterPrefs, nextTrialPrefs, performancePrefs)
-if ispref(prefTag)
-    rmpref(prefTag);
-end
+function cleanupAll(prefTag, scatterPrefs, nextTrialPrefs, performancePrefs, layoutPrefs)
+% Windows first, and by delete: a close would save their layout again.
+delete(findall(groot,'Type','figure','-and','Tag',prefTag));
+restoreGroupPrefs(prefTag, layoutPrefs);
 if isempty(scatterPrefs)
     if ispref('epsych2_gui_ParameterScatter','AppetitiveDetection_ScatterPlot')
         rmpref('epsych2_gui_ParameterScatter','AppetitiveDetection_ScatterPlot');
@@ -495,5 +500,28 @@ else
     setpref('epsych2_gui_NextTrial',validName,nextTrialPrefs);
 end
 restoreComponentPrefs('epsych2_gui_SessionPerformance', prefTag, performancePrefs);
-delete(findall(groot,'Type','figure','-and','Tag',prefTag));
+end
+
+
+function saved = savedGroupPrefs(group)
+% A whole preference group as it is now; [] when it does not exist.
+saved = [];
+if ispref(group)
+    saved = getpref(group);
+end
+end
+
+
+function restoreGroupPrefs(group, saved)
+% Put a preference group back as savedGroupPrefs found it.
+if ~isstruct(saved)
+    if ispref(group), rmpref(group); end
+    return
+end
+names = fieldnames(saved);
+for k = 1:numel(names)
+    setpref(group, names{k}, saved.(names{k}));
+end
+added = setdiff(fieldnames(getpref(group)), names);
+if ~isempty(added), rmpref(group, added); end
 end

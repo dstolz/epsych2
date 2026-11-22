@@ -133,7 +133,7 @@ classdef Runtime < handle & dynamicprops
 
     properties (Access = private)
         TRIALSInitialized_ (1,1) logical = false % True once TRIALS has been set for the first time on this Runtime instance
-        DispatchOrderCache_ = struct('params', {}, 'order', {}) % Per-subject dependency-ordered dispatch permutation; revalidated against the dispatched parameter handles each trial so an operator recompile (which replaces TRIALS.parameters) recomputes it
+        DispatchOrderCache_ = struct('params', {}, 'order', {}, 'exprs', {}) % Per-subject dependency-ordered dispatch permutation; revalidated each trial against the dispatched parameter handles AND their Expression text, so an operator recompile (which replaces TRIALS.parameters) or an expression edited mid-session recomputes it
     end
 
 

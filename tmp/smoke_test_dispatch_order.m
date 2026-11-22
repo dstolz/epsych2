@@ -66,6 +66,46 @@ pCycA.Expression = "";
 pCycB.Expression = "";
 fprintf('PASS: reference cycle fallback\n');
 
+% 2b. A dot operator is still a reference --------------------------------
+% "Gain.*3" names Gain. The sibling pattern used to refuse any name followed
+% by a dot, so the dependency went unreported: orderByDependencies never saw
+% it and the expression evaluated against the previous trial's Gain.
+pScaled = addp(sw,'Scaled',0);
+pScaled.Expression = "Gain.*3";
+pGain = addp(sw,'Gain',2);
+modParams = sw.Module(1).Parameters;
+[~, ~, info] = hw.Parameter.resolveExpressionContext('Gain.*3', NaN, pScaled, ...
+    @() modParams, @() modParams, @(q) q.Values{1});
+assert(any(strcmp({info.references.paramName}, 'Gain')), ...
+    'Gain.*3 must report Gain as a reference');
+dotOrder = hw.Parameter.orderByDependencies([pScaled, pGain], modParams);
+assert(isequal(dotOrder, [2 1]), 'Gain must dispatch before Scaled (dot operator)');
+[~, ~, info] = hw.Parameter.resolveExpressionContext('Value.^2', 3, pScaled, ...
+    @() modParams, @() modParams, @(q) q.Values{1});
+assert(info.usesValueVariable, 'Value.^2 must count as using Value');
+fprintf('PASS: a dot operator is still a reference\n');
+
+% 2c. Only the siblings an expression names are read ---------------------
+% At runtime every sibling read is a device round trip, so an expression
+% must not read parameters it never mentions.
+reads = containers.Map('KeyType','char','ValueType','double');
+reads('named') = 0;
+reads('other') = 0;
+Lnamed = addlistener(pGain,'Value','PostGet',@(~,~) bump(reads,'named'));
+Lother = addlistener([pStimDur, pPre, pPost, pStimDelay],'Value','PostGet',@(~,~) bump(reads,'other'));
+pGain.Value = 5;
+reads('named') = 0;
+reads('other') = 0;
+pScaled.Value = 0; % evaluates "Gain.*3"
+delete(Lnamed);
+delete(Lother);
+assert(pScaled.Value == 15, 'Scaled must evaluate Gain.*3 (got %g)', pScaled.Value);
+assert(reads('named') >= 1, 'the named sibling must be read');
+assert(reads('other') == 0, ...
+    'siblings the expression does not name were read %d time(s)', reads('other'));
+pScaled.Expression = "";
+fprintf('PASS: an expression reads only the siblings it names\n');
+
 % 3. Live Runtime dispatch: expressions see this trial''s values ----------
 rt = epsych.Runtime;
 rt.isTest = true;
@@ -175,4 +215,8 @@ function p = addp(sw,name,value,varargin)
 % during trial dispatch, so set it here too.
 p = sw.add_parameter(name,value,varargin{:});
 p.Value = value;
+end
+
+function bump(m,key)
+m(key) = m(key) + 1;
 end

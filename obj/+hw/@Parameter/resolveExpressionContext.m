@@ -48,16 +48,34 @@ refs = localEmptyRefs_();
 unresolved = {};
 siblingMap = struct('varName', {}, 'param', {});
 
-% Build context: Value holds incoming value; siblings in same module by name
+% Build context: Value holds incoming value; siblings in same module by name.
+%
+% Only siblings the expression NAMES are read. The context used to hold every
+% parameter of the module, and at runtime each of those is a device read
+% (valueFcn is p.Value): an expression on a 60-tag RPvds module cost 60 round
+% trips -- whole buffers included -- on every trial dispatch, to evaluate
+% "StimDelay + 250". The test is a plain identifier scan of the text, with no
+% lookarounds: a superset of what the expression can reference, so a sibling
+% that shadows a function name is still defined exactly when its name
+% appears. The one thing it cannot see is a name built at evaluation time
+% (eval(['Fo' 'o'])), which was never a supported way to write one.
 context = struct('Value', currentValue);
 try
     siblings = siblingsFcn();
-    for idx = 1:numel(siblings)
+    identifiers = unique(regexp(expressionText, '[A-Za-z]\w*', 'match'));
+    if ~isempty(siblings) && ~isempty(identifiers)
+        varNames = matlab.lang.makeValidName({siblings.Name});
+        named = find(ismember(varNames, identifiers));
+    else
+        varNames = {};
+        named = [];
+    end
+    for idx = named
         sib = siblings(idx);
         if isequal(sib, targetParam)
             continue
         end
-        varName = matlab.lang.makeValidName(sib.Name);
+        varName = varNames{idx};
         sibVal = valueFcn(sib);
         if isnumeric(sibVal) || islogical(sibVal) || ischar(sibVal) || isstring(sibVal)
             context.(varName) = sibVal;
@@ -65,20 +83,26 @@ try
         end
     end
 
-    % Collect all parameters across the interface once for both rewrite passes
-    allParams = allParamsFcn();
+    % Both rewrite passes act on Name.Name tokens only, so an expression with
+    % none skips them -- and skips gathering every parameter of every
+    % interface, which is what allParamsFcn does at runtime. A dot operator
+    % (A.*B, A.^2) is not such a token: what follows its dot is not a letter.
+    if ~isempty(regexp(expressionText, '(?<!\.)\<[A-Za-z]\w*\.[A-Za-z]\w*\>', 'once'))
+        % Collect all parameters across the interface once for both rewrite passes
+        allParams = allParamsFcn();
 
-    % Rewrite property access (Param.Prop, ModuleName.Param.Prop) before module
-    % references so that 3-level chains are not consumed by the 2-level rewriter.
-    [expressionText, context, propRefs, propUnresolved] = ...
-        localRewritePropertyRefs_(siblings, allParams, expressionText, context, valueFcn);
+        % Rewrite property access (Param.Prop, ModuleName.Param.Prop) before module
+        % references so that 3-level chains are not consumed by the 2-level rewriter.
+        [expressionText, context, propRefs, propUnresolved] = ...
+            localRewritePropertyRefs_(siblings, allParams, expressionText, context, valueFcn);
 
-    % Rewrite qualified value references (ModuleName.ParamName) to aliases
-    [expressionText, context, qualRefs, qualUnresolved] = ...
-        localRewriteQualifiedRefs_(allParams, expressionText, context, valueFcn);
+        % Rewrite qualified value references (ModuleName.ParamName) to aliases
+        [expressionText, context, qualRefs, qualUnresolved] = ...
+            localRewriteQualifiedRefs_(allParams, expressionText, context, valueFcn);
 
-    refs = [refs, propRefs, qualRefs];
-    unresolved = [unresolved, propUnresolved, qualUnresolved];
+        refs = [refs, propRefs, qualRefs];
+        unresolved = [unresolved, propUnresolved, qualUnresolved];
+    end
 catch ME
     vprintf(0, 1, 'hw:Parameter:ExpressionContextWarning: could not fully build context for "%s": %s', ...
         targetParam.Name, ME.message);
@@ -87,9 +111,14 @@ end
 rewrittenText = expressionText;
 
 if nargout > 2
-    % Report which siblings the (rewritten) expression actually references
+    % Report which siblings the (rewritten) expression actually references.
+    % A name followed by a dot is a reference unless a LETTER follows the
+    % dot: "A.B" is someone else's token, but "A.*B", "A./B" and "A.^2" are A
+    % under a dot operator. Refusing any dot dropped those from the report,
+    % so orderByDependencies never saw the dependency and the expression
+    % evaluated against the previous trial's value.
     for idx = 1:numel(siblingMap)
-        pattern = ['(?<!\.)\<' regexptranslate('escape', siblingMap(idx).varName) '\>(?!\.)'];
+        pattern = ['(?<!\.)\<' regexptranslate('escape', siblingMap(idx).varName) '\>(?!\.[A-Za-z])'];
         if ~isempty(regexp(rewrittenText, pattern, 'once'))
             refs(end+1) = localMakeRef_(siblingMap(idx).varName, 'sibling', '', ...
                 siblingMap(idx).param.Name, '', siblingMap(idx).param, ...
@@ -100,7 +129,7 @@ if nargout > 2
     info = struct( ...
         'references', refs, ...
         'unresolvedQualified', {unresolved}, ...
-        'usesValueVariable', ~isempty(regexp(rewrittenText, '(?<!\.)\<Value\>(?!\.)', 'once')));
+        'usesValueVariable', ~isempty(regexp(rewrittenText, '(?<!\.)\<Value\>(?!\.[A-Za-z])', 'once')));
 end
 
 

@@ -67,10 +67,17 @@ trialRow = T.trials(T.NextTrialID, dispatchIdx);
 % dispatched parameter's value (e.g. RespWinDelay referencing a randomized
 % StimDelay) must be assigned after that parameter, or the expression
 % evaluates against the previous trial's value.
+%
+% The order is derived from the Expression TEXT, so the text is part of the
+% cache key: an expression edited mid-session (the designer, a phase load)
+% leaves the same handles in the same order, and a key of handles alone kept
+% serving the permutation the old text asked for.
 cache = obj.DispatchOrderCache_;
+exprs = [P.Expression];
 cacheValid = numel(cache) >= subjectIdx ...
     && numel(cache(subjectIdx).params) == numel(P) ...
-    && all(cache(subjectIdx).params == P);
+    && all(cache(subjectIdx).params == P) ...
+    && isequal(cache(subjectIdx).exprs, exprs);
 if ~cacheValid
     % Resolution scope mirrors hw.Parameter.evaluateExpression_: every
     % parameter of every module across all interfaces.
@@ -84,6 +91,7 @@ if ~cacheValid
         end
     end
     cache(subjectIdx).params = P;
+    cache(subjectIdx).exprs = exprs;
     cache(subjectIdx).order = hw.Parameter.orderByDependencies(P, scope);
     obj.DispatchOrderCache_ = cache;
 end

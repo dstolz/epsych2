@@ -52,6 +52,12 @@ classdef TDT_RPcox < hw.Interface
         Type = "TDT_RPcox"
     end
 
+    properties (Constant, Hidden)
+        % Seconds a trigger tag is held high between the write of 1 and the
+        % write of 0 (hw.Interface.holdPulse).
+        PULSE_HOLD = 0.001
+    end
+
 
 
     methods
@@ -551,7 +557,9 @@ classdef TDT_RPcox < hw.Interface
                     'Unable to trigger "%s" on module "%s": writing 1 to the tag failed.', ...
                     trig, P.Module.Label);
             end
-            pause(0.001)
+            % Not pause(): that would render every pending graphics update
+            % inside the pulse (hw.Interface.holdPulse).
+            hw.Interface.holdPulse(obj.PULSE_HOLD)
 
             % The edge went out; a failed reset is logged rather than thrown,
             % as it always was meant to be, so the caller still gets t.

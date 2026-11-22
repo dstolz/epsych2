@@ -109,6 +109,10 @@ classdef TDT_Synapse < hw.Interface
 
         % Seconds between mode polls.
         MODE_POLL_PERIOD = 0.25
+
+        % Seconds a trigger tag is held high between the write of 1 and the
+        % write of 0 (hw.Interface.holdPulse).
+        PULSE_HOLD = 0.001
     end
 
 
@@ -493,7 +497,9 @@ classdef TDT_Synapse < hw.Interface
                     tag, gizmo, char(obj.queryModeState_()));
             end
 
-            pause(0.001)
+            % Not pause(): that would render every pending graphics update
+            % inside the pulse (hw.Interface.holdPulse).
+            hw.Interface.holdPulse(obj.PULSE_HOLD)
 
             ok = obj.HW.setParameterValue(gizmo, tag, 0);
             if ok

@@ -132,7 +132,11 @@ classdef Parameter_Update < handle
                 obj.Button.Text = "Nothing to Update";
                 obj.Button.Enable = 'off';
             end
-            drawnow
+            % No drawnow: this also runs when a trial-boundary write
+            % satisfies or supersedes a staged edit, i.e. inside the
+            % dispatch, where a drawnow would render every pending update
+            % before the trial could start. The button repaints when the
+            % callback that got here returns.
         end
 
         function key_press(obj,src,event)

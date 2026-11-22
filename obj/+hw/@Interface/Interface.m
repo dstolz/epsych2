@@ -776,6 +776,33 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             end
         end
 
+        function holdPulse(seconds)
+            % hw.Interface.holdPulse(seconds)
+            % Hold a trigger pulse high for SECONDS without giving up the
+            % MATLAB thread.
+            %
+            % A trigger is a write of 1, a hold, and a write of 0. The hold
+            % used to be pause(), and pause does more than wait: it processes
+            % the event queue, so everything a NewData listener had just
+            % queued -- a table rewrite, three plots -- was RENDERED inside
+            % the ResetTrig pulse, before a single trial parameter had been
+            % written. Measured in a timer callback on R2024b: pause(0.001)
+            % after one uitable change took 24 ms (up to 50), a 1 ms spin
+            % took 1 ms. It also let a queued button press run in the middle
+            % of a dispatch. hw.Bpod made the same choice for the same
+            % reason (see hw.Bpod trigger).
+            %
+            % The spin costs one core for the length of the pulse and
+            % nothing else; graphics are drawn when the timer callback
+            % returns, after the trial has started.
+            %
+            % Parameters:
+            %   seconds - hold time. Non-positive returns at once.
+            t0 = tic;
+            while toc(t0) < seconds
+            end
+        end
+
         function name = getHardwareParameterName(parameter)
             name = parameter.Name;
             if isstruct(parameter.UserData) && isfield(parameter.UserData, 'HardwareName') && ~isempty(parameter.UserData.HardwareName)

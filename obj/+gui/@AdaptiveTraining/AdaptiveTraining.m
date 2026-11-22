@@ -315,7 +315,12 @@ classdef AdaptiveTraining < handle
             obj.refreshPreview(); % the preview follows the value, not the session start
             obj.updatePlot();
 
-            drawnow limitrate
+            % No drawnow here. During a session this runs from a NewData
+            % listener, between a trial ending and the next one being
+            % dispatched, and a drawnow there renders every pending update in
+            % every window while the subject waits. MATLAB draws when the
+            % callback that got here returns -- the timer tick, or the
+            % operator's button press -- which is soon enough for a plot.
         end
 
         function resetHistory(obj)

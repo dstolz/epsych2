@@ -156,8 +156,7 @@ classdef CountingProbeInterface < hw.Interface
             if obj.YieldInTrigger
                 pause(0.001)
             else
-                t0 = tic;
-                while toc(t0) < 0.001, end
+                hw.Interface.holdPulse(0.001)
             end
             obj.Counts.TrigWrite = obj.Counts.TrigWrite + 1;
             obj.deviceCall_();

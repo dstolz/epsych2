@@ -176,6 +176,25 @@ switch COMMAND
             end
         end
 
+        % Leaving out a dispatch write the device was just read back holding
+        % is the rig's choice as well (hw.Interface.SkipUnchangedWrites, and
+        % why it is off unless asked for). A preference that exists is
+        % applied either way, so removing the true is not needed to get the
+        % writes back; one that does not exist leaves each interface as its
+        % protocol or a script set it.
+        if ispref('EPsych', 'SkipUnchangedWrites')
+            v = getpref('EPsych', 'SkipUnchangedWrites');
+            if isscalar(v) && (islogical(v) || isnumeric(v))
+                ifaces = self.RUNTIME.Interfaces;
+                for k = 1:numel(ifaces)
+                    ifaces(k).SkipUnchangedWrites = logical(v);
+                end
+                if logical(v)
+                    vprintf(1, 'Unchanged parameter writes are left out of trial dispatch (preference EPsych/SkipUnchangedWrites)')
+                end
+            end
+        end
+
         % Trial-loop timing is recorded only when asked for (preference
         % EPsych/TickStats); see epsych.TickStats. Reported at Stop.
         if epsych.TickStats.enabledByPref()

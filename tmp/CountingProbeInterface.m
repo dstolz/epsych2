@@ -207,6 +207,9 @@ classdef CountingProbeInterface < hw.Interface
             for i = 1:numel(P)
                 v = value(i);
                 if iscell(v), v = v{1}; end
+                if obj.SkipUnchangedWrites
+                    P(i).forgetDeviceValue();   % a write past set.Value
+                end
                 result = obj.writeOne_(P(i), v) && result;
             end
         end
@@ -252,6 +255,10 @@ classdef CountingProbeInterface < hw.Interface
                     f = P(i).validName;
                     if isfield(obj.Store, f)
                         value{i} = obj.Store.(f);
+                        if obj.SkipUnchangedWrites
+                            % what the device itself returned (hw.Interface.holdsValue)
+                            P(i).noteDeviceRead(value{i}, obj.DeviceEpoch);
+                        end
                     elseif ~isempty(P(i).Values)
                         value{i} = P(i).Values{1};
                     else
@@ -260,6 +267,15 @@ classdef CountingProbeInterface < hw.Interface
                 end
             end
             if isscalar(value), value = value{1}; end
+        end
+
+        function tf = holdsValue(obj, p, deviceValue, value)
+            % As a float32 tag would (CoerceSingle), else exactly.
+            if obj.CoerceSingle
+                tf = obj.sameInSingle_(p, deviceValue, value);
+            else
+                tf = ~p.isTrigger && isscalar(value) && isnumeric(value) && isequal(deviceValue, value);
+            end
         end
 
         function put(obj, p, v)
@@ -287,6 +303,13 @@ classdef CountingProbeInterface < hw.Interface
         end
     end
 
+    methods (Hidden)
+        function countSkippedWrite(obj)
+            countSkippedWrite@hw.Interface(obj);
+            obj.Counts.Skipped = obj.Counts.Skipped + 1;
+        end
+    end
+
     methods (Access = protected)
         function ok = writeOne_(obj, p, v)
             % One device write. Kept separate so a subclass can stand in for
@@ -294,6 +317,7 @@ classdef CountingProbeInterface < hw.Interface
             if any(strcmp(obj.RefuseWrites, p.Name))
                 obj.Counts.Write = obj.Counts.Write + 1;
                 obj.deviceCall_();
+                obj.invalidateDeviceValues();   % a refused write: nothing read before stands
                 ok = false;
                 return
             end

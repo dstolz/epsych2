@@ -175,9 +175,22 @@ classdef TDT_RPcox < hw.Interface
             obj.linkTic_ = tic;
             if ~tf
                 % A device that stopped answering may come back power
-                % cycled, with its buffers empty.
+                % cycled, with its buffers empty and its tags at their
+                % circuit defaults.
                 obj.forgetStimulusSent_();
+                obj.invalidateDeviceValues();
             end
+        end
+
+        function tf = holdsValue(obj, p, deviceValue, value)
+            % tf = holdsValue(obj, p, deviceValue, value)
+            % A scalar tag read back as DEVICEVALUE already holds VALUE when
+            % the two agree in single precision: TDTRP reads and writes
+            % scalars as F32, so that is all the device can tell apart.
+            % Triggers and arrays are always written.
+            %
+            % See also: hw.Interface.SkipUnchangedWrites
+            tf = obj.sameInSingle_(p, deviceValue, value);
         end
 
         function connect(obj)
@@ -690,6 +703,11 @@ classdef TDT_RPcox < hw.Interface
                 if ~isempty(obj.StimulusSent_)
                     obj.forgetStimulusSent_(obj.stimulusKey_(p, parameterName));
                 end
+                % And a write made here directly, past hw.Parameter.set.Value,
+                % makes this parameter's last read-back out of date.
+                if obj.SkipUnchangedWrites
+                    p.forgetDeviceValue();
+                end
 
                 e = hwHandle.write(parameterName,v);
                 if e
@@ -764,6 +782,10 @@ classdef TDT_RPcox < hw.Interface
                     % asks instead of trusting the cached probe.
                     if isempty(value{i})
                         obj.dropLink_();
+                    elseif obj.SkipUnchangedWrites
+                        % What the device itself just returned: the evidence
+                        % a later dispatch write may be left out on.
+                        p.noteDeviceRead(value{i}, obj.DeviceEpoch);
                     end
                 end
             catch ME
@@ -874,6 +896,7 @@ classdef TDT_RPcox < hw.Interface
             obj.linkTic_ = [];
             obj.modeTic_ = [];
             obj.forgetStimulusSent_();
+            obj.invalidateDeviceValues();
         end
 
         function applyModeState_(obj, mode)

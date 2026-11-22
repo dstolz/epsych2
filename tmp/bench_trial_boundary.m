@@ -38,6 +38,9 @@ function R = bench_trial_boundary(options)
 %   DeferDisplays - the session asks its hub to hold display drawing until
 %                   the next trial is dispatched (epsych.EventHub.defer).
 %                   Default false
+%   SkipUnchangedWrites - the device leaves out a dispatch write it was just
+%                   read back holding (hw.Interface.SkipUnchangedWrites).
+%                   Default false
 %   BufferSamples - > 0 adds a readable Buffer of this many samples. Default 0
 %   CallDelay     - seconds each device call busy-waits. Default 0
 %   ProbeTTL      - seconds the double may cache its connection probe, as
@@ -71,6 +74,7 @@ arguments
     options.NumControls (1,1) double {mustBeNonnegative, mustBeInteger} = 0
     options.Displays (1,1) logical = false
     options.DeferDisplays (1,1) logical = false
+    options.SkipUnchangedWrites (1,1) logical = false
     options.BufferSamples (1,1) double {mustBeNonnegative, mustBeInteger} = 0
     options.CallDelay (1,1) double {mustBeNonnegative} = 0
     options.ProbeTTL (1,1) double {mustBeNonnegative} = 0.25
@@ -96,6 +100,7 @@ dev = CountingProbeInterface(CallDelay = 0, CoerceSingle = options.CoerceSingle,
     ProbeTTL = options.ProbeTTL, ModeTTL = options.ModeTTL, ...
     YieldInTrigger = options.YieldInTrigger);
 P.addInterface(dev);
+dev.SkipUnchangedWrites = options.SkipUnchangedWrites;
 
 W = cell(1, options.NumWrite);
 for k = 1:options.NumWrite

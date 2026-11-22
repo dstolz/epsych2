@@ -65,6 +65,41 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
         % or one another program also writes: nothing here can see that.
         % Not saved with a protocol; set it from code.
         SkipUnchangedStimulus (1,1) logical = true
+
+        % Leave out, during the trial loop's own dispatch, the write of a
+        % parameter the device was read back holding moments earlier.
+        %
+        % The trial-end sweep reads every visible read/write parameter, and
+        % the dispatch that follows it writes most of them back unchanged:
+        % forty writes to say what the device has just reported. With this
+        % on, a parameter is not written when (1) the backend read it from
+        % the device since this trial ended, (2) nothing has written it or
+        % invalidated the interface since, and (3) the backend says the
+        % value read is the value to write, in the device's own precision
+        % (holdsValue). Everything else set.Value does -- randomization, the
+        % Expression, clamping, the callbacks, the PostSet event -- runs as
+        % always; only the device call is left out.
+        %
+        % OFF by default, because it rests on one assumption nothing here
+        % can check: that between the trial-end read and the dispatch, a
+        % matter of milliseconds, only the host changes what a parameter
+        % holds. A circuit whose reset trigger rewrites its own parameter
+        % tags, or a device another program writes, breaks it. The first
+        % dispatch of a run, a regenerated trial, and every write made
+        % outside the trial loop are always sent. Backends that do not
+        % implement holdsValue ignore the setting. RunExpt switches it on
+        % at Run when preference EPsych/SkipUnchangedWrites is true.
+        SkipUnchangedWrites (1,1) logical = false
+    end
+
+    properties (Transient, SetAccess = protected)
+        % Parameter writes left out by SkipUnchangedWrites.
+        WritesSkipped (1,1) double = 0
+
+        % Counts up whenever the device may have stopped holding what was
+        % read from it (invalidateDeviceValues). A parameter's read-back is
+        % evidence only while the count it was taken under still stands.
+        DeviceEpoch (1,1) double = 0
     end
 
     properties (Transient, SetAccess = protected)
@@ -89,6 +124,12 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
         % per-write success record to the dispatcher's one summary record.
         % Nothing but the dispatcher sets it.
         InDispatch (1,1) logical = false
+
+        % True only inside a dispatch the trial loop itself asked for
+        % (dispatchNextTrial(i, AllowSkip=true)) on an interface with
+        % SkipUnchangedWrites on. hw.Parameter.set.Value reads it. Nothing
+        % but the dispatcher sets it.
+        DispatchMaySkip (1,1) logical = false
     end
 
 
@@ -242,6 +283,42 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             % invalidated by everything that can change the answer: connect,
             % disconnect, a session reset, a failed read or write.
             tf = obj.IsConnected;
+        end
+
+        % holdsValue - Whether the device, read back as DEVICEVALUE, already holds VALUE
+        function tf = holdsValue(~, ~, ~, ~)
+            % tf = holdsValue(obj, p, deviceValue, value)
+            % The question SkipUnchangedWrites turns on: is writing VALUE to
+            % parameter P a no-op, given that the device was just read back
+            % holding DEVICEVALUE?
+            %
+            % It is the backend's to answer because only the backend knows
+            % what the device keeps of a value -- a float32, an integer, a
+            % pump's four digits with their units. The default is FALSE,
+            % which makes it the capability query too: a backend that does
+            % not override this never has a write skipped. An override
+            % answers true only when it is certain, and never for a trigger
+            % or an array.
+            %
+            % A backend that overrides this must also do two things, or the
+            % answer is never asked for: call p.noteDeviceRead(v,
+            % obj.DeviceEpoch) where get_parameter has a value the device
+            % itself returned, and call invalidateDeviceValues whenever the
+            % device may have stopped holding it.
+            %
+            % See also: hw.Interface.SkipUnchangedWrites, hw.Parameter.noteDeviceRead
+            tf = false;
+        end
+
+        % invalidateDeviceValues - The device may no longer hold what was read from it
+        function invalidateDeviceValues(obj)
+            % invalidateDeviceValues(obj)
+            % Retire every read-back taken so far as evidence for
+            % SkipUnchangedWrites. Called by a backend on connect, close, a
+            % session reset, a mode change, a refused write; and by the
+            % trial loop before each trial-end read, so that only what THAT
+            % read finds can excuse a write in the dispatch after it.
+            obj.DeviceEpoch = obj.DeviceEpoch + 1;
         end
 
         % displayLabel - Human-readable name for this backend, for operator messages
@@ -622,6 +699,18 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             parameter.UserData.HardwareName = char(hardwareName);
         end
 
+        function tf = sameInSingle_(~, p, deviceValue, value)
+            % tf = sameInSingle_(obj, p, deviceValue, value)
+            % holdsValue for a device that keeps scalars in single
+            % precision: true when both are scalar numbers that agree as
+            % singles. NaN never agrees with anything, so it is written.
+            tf = ~p.isTrigger ...
+                && isscalar(value) && isscalar(deviceValue) ...
+                && (isnumeric(value) || islogical(value)) ...
+                && (isnumeric(deviceValue) || islogical(deviceValue)) ...
+                && single(deviceValue) == single(value);
+        end
+
         % --- Waveform uploads (SkipUnchangedStimulus) -----------------------
         % A backend that uploads a 'StimType' waveform asks stimulusOnDevice_
         % before the transfer, calls noteStimulusSent_ after one that
@@ -669,6 +758,14 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             elseif obj.StimulusSent_.isKey(key)
                 remove(obj.StimulusSent_, key);
             end
+        end
+    end
+
+    methods (Hidden)
+        function countSkippedWrite(obj)
+            % countSkippedWrite(obj)
+            % hw.Parameter.set.Value left a write out (SkipUnchangedWrites).
+            obj.WritesSkipped = obj.WritesSkipped + 1;
         end
     end
 

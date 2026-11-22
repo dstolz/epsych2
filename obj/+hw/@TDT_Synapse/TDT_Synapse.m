@@ -401,6 +401,7 @@ classdef TDT_Synapse < hw.Interface
         function close_interface(obj)
             obj.ParameterSizes_ = containers.Map('KeyType', 'char', 'ValueType', 'double');
             obj.forgetStimulusSent_();
+            obj.invalidateDeviceValues();
             obj.modeTic_ = [];
             obj.directRead_ = [];
 
@@ -530,6 +531,17 @@ classdef TDT_Synapse < hw.Interface
         end
 
 
+        function tf = holdsValue(obj, p, deviceValue, value)
+            % tf = holdsValue(obj, p, deviceValue, value)
+            % A scalar parameter read back as DEVICEVALUE already holds VALUE
+            % when the two agree in single precision, which is what a
+            % processor keeps of a scalar. Triggers and arrays are always
+            % written.
+            %
+            % See also: hw.Interface.SkipUnchangedWrites
+            tf = obj.sameInSingle_(p, deviceValue, value);
+        end
+
         % set new value to one or more hardware parameters
         % returns TRUE if successful, FALSE otherwise
         function e = set_parameter(obj,name,value)
@@ -593,6 +605,11 @@ classdef TDT_Synapse < hw.Interface
                 if ~isempty(obj.StimulusSent_)
                     obj.forgetStimulusSent_([gizmo '.' tag]);
                 end
+                % And a write made here directly, past hw.Parameter.set.Value,
+                % makes this parameter's last read-back out of date.
+                if obj.SkipUnchangedWrites
+                    p.forgetDeviceValue();
+                end
 
                 v = double(v);
                 if isscalar(v)
@@ -615,6 +632,9 @@ classdef TDT_Synapse < hw.Interface
                         vprintf(4,'Updated parameter: %s = %s',p.Name,p.formatValue(v))
                     end
                 else
+                    % A refused write says the device is not in the state
+                    % the host thought; nothing read from it before stands.
+                    obj.invalidateDeviceValues();
                     vprintf(0,1,'Failed to write %s = %s to %s.%s (Synapse mode: %s)', ...
                         p.Name, p.formatValue(v), gizmo, tag, char(obj.queryModeState_()))
                 end
@@ -678,6 +698,12 @@ classdef TDT_Synapse < hw.Interface
                 if ischar(v) || isstring(v)
                     vprintf(2,'No value from Synapse for %s.%s', gizmo, tag)
                     v = nan;
+                end
+                if obj.SkipUnchangedWrites && isnumeric(v) && isscalar(v) && ~isnan(v)
+                    % What Synapse itself just returned: the evidence a later
+                    % dispatch write may be left out on. Never the NaN that
+                    % stands in for a read it refused.
+                    p.noteDeviceRead(v, obj.DeviceEpoch);
                 end
                 value{i} = v;
             end
@@ -753,6 +779,7 @@ classdef TDT_Synapse < hw.Interface
             % A mode change may unload the circuit (Idle does), and a
             % reloaded buffer is empty: the next stimulus write is real.
             obj.forgetStimulusSent_();
+            obj.invalidateDeviceValues();
             if ~obj.IsConnected || isempty(obj.HW)
                 return
             end

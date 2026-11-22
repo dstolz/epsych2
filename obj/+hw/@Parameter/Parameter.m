@@ -136,6 +136,16 @@ classdef Parameter < matlab.mixin.SetGet
         HostValue_ = []
         HostValueKnown_ (1,1) logical = false
 
+        % What the DEVICE last returned for this parameter, and the
+        % interface's DeviceEpoch at that moment. Recorded only by a backend
+        % that implements hw.Interface.holdsValue, and only while its
+        % SkipUnchangedWrites is on (noteDeviceRead); set.Value consults it
+        % to leave out a dispatch write the device already holds. Any write
+        % of this parameter clears it.
+        DeviceValue_ = []
+        DeviceValueKnown_ (1,1) logical = false
+        DeviceEpoch_ (1,1) double = -1
+
         % What kind of Parent this is, resolved once: get.Value used to ask
         % isa() and isprop() of it on every read. Parent is immutable, so
         % the answer cannot change. -1 = not resolved yet (also what an
@@ -410,8 +420,19 @@ classdef Parameter < matlab.mixin.SetGet
             % stimulus object and decides what to do with it (see
             % hw.Interface.stimulusPayload). Backends with no waveform sink log
             % and keep the value host-side.
+            %
+            % The one write that is not sent: inside the trial loop's own
+            % dispatch, a value the device was read back holding since the
+            % trial ended (hw.Interface.SkipUnchangedWrites, off by default).
+            % DeviceValueKnown_ is false unless a backend with that setting
+            % on recorded a read, so this costs one test otherwise.
             if obj.isArray, value = {value}; end
-            obj.Parent.set_parameter(obj,value);
+            if obj.DeviceValueKnown_ && obj.deviceAlreadyHolds_(value)
+                obj.Parent.countSkippedWrite();
+            else
+                obj.DeviceValueKnown_ = false;
+                obj.Parent.set_parameter(obj,value);
+            end
 
             % `now` is much faster than `datetime("now")`
             % use: dt = datetime(obj.lastUpdated, 'ConvertFrom','datenum', 'TimeZone','local');
@@ -439,7 +460,31 @@ classdef Parameter < matlab.mixin.SetGet
             v = obj.HostValue_;
             known = obj.HostValueKnown_;
         end
+    end
 
+    methods (Hidden)
+        function noteDeviceRead(obj, v, epoch)
+            % noteDeviceRead(obj, v, epoch)
+            % A backend's record that the DEVICE just returned V for this
+            % parameter, under the interface's DeviceEpoch EPOCH. Called from
+            % a backend's get_parameter, for a value the device itself gave
+            % -- never for a fallback served from the host -- and only while
+            % its SkipUnchangedWrites is on. See hw.Interface.holdsValue.
+            obj.DeviceValue_ = v;
+            obj.DeviceEpoch_ = epoch;
+            obj.DeviceValueKnown_ = true;
+        end
+
+        function forgetDeviceValue(obj)
+            % forgetDeviceValue(obj)
+            % The device may no longer hold what was read: a backend calls
+            % this for a parameter written through set_parameter directly,
+            % which set.Value does not see.
+            obj.DeviceValueKnown_ = false;
+        end
+    end
+
+    methods
         function vstr = get.ValueStr(obj)
             % A write-only parameter has nothing to read back: get.Value logs
             % a critical record and returns NaN. ValueStr is display text
@@ -607,6 +652,18 @@ classdef Parameter < matlab.mixin.SetGet
     end
 
     methods (Access = private)
+        function tf = deviceAlreadyHolds_(obj, value)
+            % tf = deviceAlreadyHolds_(obj, value)
+            % True when writing VALUE now would tell the device what it was
+            % just read back holding: the dispatcher allows a skip on this
+            % interface, the read-back was taken under the interface's
+            % current DeviceEpoch, and the backend says the two agree.
+            par = obj.Parent;
+            tf = par.DispatchMaySkip ...
+                && obj.DeviceEpoch_ == par.DeviceEpoch ...
+                && par.holdsValue(obj, obj.DeviceValue_, value);
+        end
+
         function tf = readsDevice_(obj)
             % tf = readsDevice_(obj)
             % True when a read of Value should go to the backend rather than

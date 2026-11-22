@@ -52,6 +52,18 @@ for i = 1:RUNTIME.NSubjects
     % There was a response and the trial is over.
     % Retrieve parameter data for this trial and save in TRIALS structure.
 
+    % An interface that may leave out an unchanged write in the dispatch
+    % below (hw.Interface.SkipUnchangedWrites, off by default) does so on the
+    % strength of what the device is read back holding. Retiring every
+    % earlier read-back first means only what THIS read finds can excuse a
+    % write: a monitor's poll from seconds ago cannot.
+    ifaces = RUNTIME.Interfaces;
+    for k = 1:numel(ifaces)
+        if ifaces(k).SkipUnchangedWrites
+            ifaces(k).invalidateDeviceValues();
+        end
+    end
+
     % Get Read parameters scoped to this subject's box.
     % Box-specific parameters carry a "~BoxID" suffix; global parameters
     % (software interface, no suffix) are included for every subject.
@@ -168,7 +180,9 @@ for i = 1:RUNTIME.NSubjects
     if timed, ts.mark("select"); end
 
     % --- End of trial processing, now next trial is selected and ready to dispatch on the next timer tick ---
-    RUNTIME.dispatchNextTrial(i);
+    % AllowSkip: this dispatch follows the trial-end read above, which is
+    % what an interface with SkipUnchangedWrites on needs to have seen.
+    RUNTIME.dispatchNextTrial(i, AllowSkip = true);
     clear deferralGuard
     if timed, ts.boundaryEnd(); end
 

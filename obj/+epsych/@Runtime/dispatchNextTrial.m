@@ -1,5 +1,6 @@
-function dispatchNextTrial(obj, subjectIdx)
+function dispatchNextTrial(obj, subjectIdx, options)
 % dispatchNextTrial(obj, subjectIdx)
+% dispatchNextTrial(obj, subjectIdx, AllowSkip=true)
 % Dispatch the already selected next trial for one subject.
 %
 % Applies all writable trial parameters for the current NextTrialID, fires the
@@ -8,6 +9,13 @@ function dispatchNextTrial(obj, subjectIdx)
 % Parameters:
 %   obj                           Runtime state object.
 %   subjectIdx (1,1) double       Index of the subject to dispatch.
+%   AllowSkip (1,1) logical       An interface with SkipUnchangedWrites on may
+%                                 leave out a write the device was read back
+%                                 holding since the trial ended. Default false:
+%                                 only the trial loop passes true, because only
+%                                 it has just read the device. The first
+%                                 dispatch of a run, a regenerated trial and
+%                                 any other caller write everything.
 %
 % Returns:
 %   None. Updates parameter handles and notifies listeners.
@@ -15,6 +23,7 @@ function dispatchNextTrial(obj, subjectIdx)
 arguments
     obj (1,1) epsych.Runtime
     subjectIdx (1,1) double {mustBeInteger,mustBePositive}
+    options.AllowSkip (1,1) logical = false
 end
 
 T = obj.TRIALS(subjectIdx);
@@ -49,9 +58,16 @@ timed = ~isempty(ts);
 % dbstack-and-file-write records for each of some forty parameters, on every
 % trial, while the subject waited. Failures are still logged where they
 % happen, and a write made outside a dispatch keeps its own record.
+%
+% DispatchMaySkip is the second thing they are told: that this dispatch
+% follows a trial-end read of the device, so a write of what was just read
+% back may be left out (hw.Interface.SkipUnchangedWrites, off by default).
+% Never on trial 1, whose values the device has not been given yet.
+maySkip = options.AllowSkip && T.TrialIndex > 1;
 ifaces = obj.Interfaces;
 for k = 1:numel(ifaces)
     ifaces(k).InDispatch = true;
+    ifaces(k).DispatchMaySkip = maySkip && ifaces(k).SkipUnchangedWrites;
 end
 endDispatch = onCleanup(@() localEndDispatch(ifaces));
 
@@ -147,6 +163,7 @@ function localEndDispatch(ifaces)
 for k = 1:numel(ifaces)
     if isvalid(ifaces(k))
         ifaces(k).InDispatch = false;
+        ifaces(k).DispatchMaySkip = false;
     end
 end
 end

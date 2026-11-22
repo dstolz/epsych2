@@ -87,6 +87,31 @@ first column is where to ask.
 A preference that does not exist changes nothing; read them with `ispref`
 first, since `getpref` with a default creates one.
 
+### Turning the opt-in settings on for a rig
+
+Each is one line at the MATLAB prompt, takes effect at the next Run, and is
+undone with `rmpref('EPsych', '<name>')`. What to check first:
+
+```matlab
+% No analysis reads a buffer out of Data(k)? Then stop recording them.
+setpref('EPsych', 'RecordBuffers', false)
+
+% Data(k).<StimParameter> becomes a struct of the stimulus's settings
+% instead of the stimgen object. Field reads (.Frequency, .Duration) are
+% unchanged; method calls on it are not possible.
+setpref('EPsych', 'RecordStimulusSettings', true)
+
+% No circuit on the rig rewrites its own parameter tags when ResetTrig or
+% NewTrial fires, and nothing but EPsych writes the device.
+setpref('EPsych', 'SkipUnchangedWrites', true)
+
+% For a behavior GUI that does not opt in by itself.
+setpref('EPsych', 'DeferDisplays', true)
+```
+
+Run one Preview with `EPsych/TickStats` on before and after to see what each
+bought on that rig.
+
 ### Displays after the trigger
 
 A trial's data reaches every display between that trial ending and the next
@@ -202,14 +227,15 @@ In rough order of what it costs when present:
    on the RZ6. Now skipped when unchanged.
 2. **A buffer tag in the trial record.** About 200 ms per million samples,
    plus the journal. Hide the tag or set `RecordBuffers = false`.
-3. **Display work before the trigger.** 20–50 ms for a table and two plots.
+3. **Display work before the trigger.** 25–30 ms for a history table, a
+   scatter and a staircase plot (50–70 ms before the display-side guards).
    Defer it.
 4. **A serial device in the sweep and the dispatch.** Each pump read or write
    is a blocking transaction.
 5. **Many parameters.** Each read or write is about 0.1 ms of MATLAB whatever
    the link; forty writes are several milliseconds.
-6. **An `Expression`.** About 0.4 ms each, plus a device read per parameter
-   it names.
+6. **An `Expression`.** 0.4–0.7 ms more than a plain write, a device read of
+   each parameter it names included.
 
 ## For a new backend or display
 

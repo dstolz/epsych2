@@ -148,8 +148,10 @@ classdef NE1000 < hw.Interface
         % sweep reads Rate and Volume on every trial, and a
         % gui.components.SyringePump panel reads all of them by name; with
         % an interval those are served from what the pump last said.
-        % A write of a setting through this interface, an alarm, a units
-        % change and a reconnect all drop the cache at once.
+        % A write of a setting through this interface drops its entry; an
+        % alarm, a refused write, a Diameter write and a reconnect drop
+        % them all. Changing RateUnits does not, and need not: what is
+        % cached stays what the pump holds, in the units it reported.
         %
         % The one thing it cannot see is the pump's KEYPAD: a setting changed
         % there is reported, and recorded in the trial data, up to this many

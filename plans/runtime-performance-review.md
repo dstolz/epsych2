@@ -586,5 +586,8 @@ The benchmark with 20 controls at 200 µs per call: 470 device calls per trial
   behavior GUI, and the trigger pulse width on a scope. The benchmark circuit
   has no trial triggers, so on the RZ6 those three lived on the software
   module.
-- **Pre-existing failures**, unchanged by this work: `smoke_test_expression_check`
-  and two checks of `smoke_test_staircase_weighted_toggle`.
+- **Pre-existing failures**, unchanged by this work and failing the same way
+  on `master`: `smoke_test_expression_check`, two checks of
+  `smoke_test_staircase_weighted_toggle`, and
+  `smoke_test_hw_benchmark_runexpt`. Of the 98 smoke tests in the final run,
+  the other 96 pass.

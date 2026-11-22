@@ -49,6 +49,87 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
         % the interface stays in the array — removing it would take its
         % parameters out of trial dispatch and out of readParameters' lookup.
         RunOffline (1,1) logical = false
+
+        % Leave a 'StimType' waveform on the device when it is, sample for
+        % sample in the device's own precision, what this interface last
+        % uploaded to the same tag. The stimulus is still regenerated on
+        % every write -- a noise token that draws new samples is therefore
+        % uploaded every time -- and only the transfer is left out, which on
+        % a long stimulus is most of what a trial dispatch costs.
+        %
+        % Honoured by the backends that upload a waveform (hw.TDT_RPcox,
+        % hw.TDT_Synapse). They forget what they sent whenever the device
+        % may no longer hold it: a connect, a circuit reload at the start of
+        % a run, a mode change, a failed write, any other write to the tag.
+        % Set false for a circuit that writes into its own stimulus buffer,
+        % or one another program also writes: nothing here can see that.
+        % Not saved with a protocol; set it from code.
+        SkipUnchangedStimulus (1,1) logical = true
+
+        % Leave out, during the trial loop's own dispatch, the write of a
+        % parameter the device was read back holding moments earlier.
+        %
+        % The trial-end sweep reads every visible read/write parameter, and
+        % the dispatch that follows it writes most of them back unchanged:
+        % forty writes to say what the device has just reported. With this
+        % on, a parameter is not written when (1) the backend read it from
+        % the device since this trial ended, (2) nothing has written it or
+        % invalidated the interface since, and (3) the backend says the
+        % value read is the value to write, in the device's own precision
+        % (holdsValue). Everything else set.Value does -- randomization, the
+        % Expression, clamping, the callbacks, the PostSet event -- runs as
+        % always; only the device call is left out.
+        %
+        % OFF by default, because it rests on one assumption nothing here
+        % can check: that between the trial-end read and the dispatch, a
+        % matter of milliseconds, only the host changes what a parameter
+        % holds. A circuit whose reset trigger rewrites its own parameter
+        % tags, or a device another program writes, breaks it. The first
+        % dispatch of a run, a regenerated trial, and every write made
+        % outside the trial loop are always sent. Backends that do not
+        % implement holdsValue ignore the setting. RunExpt switches it on
+        % at Run when preference EPsych/SkipUnchangedWrites is true.
+        SkipUnchangedWrites (1,1) logical = false
+    end
+
+    properties (Transient, SetAccess = protected)
+        % Parameter writes left out by SkipUnchangedWrites.
+        WritesSkipped (1,1) double = 0
+
+        % Counts up whenever the device may have stopped holding what was
+        % read from it (invalidateDeviceValues). A parameter's read-back is
+        % evidence only while the count it was taken under still stands.
+        DeviceEpoch (1,1) double = 0
+    end
+
+    properties (Transient, SetAccess = protected)
+        % Waveform uploads this interface sent, and the ones it left out
+        % because the device already held the samples (SkipUnchangedStimulus).
+        StimulusUploads (1,1) double = 0
+        StimulusUploadsSkipped (1,1) double = 0
+    end
+
+    properties (Transient, Access = protected)
+        % What each buffer tag was last uploaded, as sent: a containers.Map
+        % made on first use (a default would be shared by every interface).
+        StimulusSent_ = []
+    end
+
+    properties (Transient, Hidden)
+        % True while epsych.Runtime.dispatchNextTrial is writing a trial's
+        % parameters to this interface, from the ResetTrig pulse to the end
+        % of the NewTrial pulse. A backend reads it to tell a dispatch write
+        % from every other kind -- an operator's commit, a phase load, the
+        % parameter debugger, calibration -- and may then leave its
+        % per-write success record to the dispatcher's one summary record.
+        % Nothing but the dispatcher sets it.
+        InDispatch (1,1) logical = false
+
+        % True only inside a dispatch the trial loop itself asked for
+        % (dispatchNextTrial(i, AllowSkip=true)) on an interface with
+        % SkipUnchangedWrites on. hw.Parameter.set.Value reads it. Nothing
+        % but the dispatcher sets it.
+        DispatchMaySkip (1,1) logical = false
     end
 
 
@@ -180,6 +261,64 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
             % next one starts. Backends with such state override this; the
             % default is a no-op. resetParametersToDesign_ is the shared pass
             % for host-side parameter values.
+        end
+
+        % ioReady - Connection check for the parameter I/O path
+        function tf = ioReady(obj)
+            % tf = ioReady(obj)
+            % Whether a parameter read or write should go to the device --
+            % the check hw.Parameter.get.Value makes before every read, and
+            % the one a backend makes at the top of get_parameter,
+            % set_parameter and trigger.
+            %
+            % IsConnected is the TRUTH and stays live: connect, connect
+            % recovery, the self-test and the benchmark ask it. This is the
+            % hot-path question, and a backend whose truth costs a device
+            % round trip may answer it from a short-lived cache. On
+            % hw.TDT_RPcox the probe is a GetStatus COM call per module, and
+            % a single parameter read used to make it twice.
+            %
+            % The default is IsConnected itself, so a backend that does not
+            % override this behaves exactly as before. An override must be
+            % invalidated by everything that can change the answer: connect,
+            % disconnect, a session reset, a failed read or write.
+            tf = obj.IsConnected;
+        end
+
+        % holdsValue - Whether the device, read back as DEVICEVALUE, already holds VALUE
+        function tf = holdsValue(~, ~, ~, ~)
+            % tf = holdsValue(obj, p, deviceValue, value)
+            % The question SkipUnchangedWrites turns on: is writing VALUE to
+            % parameter P a no-op, given that the device was just read back
+            % holding DEVICEVALUE?
+            %
+            % It is the backend's to answer because only the backend knows
+            % what the device keeps of a value -- a float32, an integer, a
+            % pump's four digits with their units. The default is FALSE,
+            % which makes it the capability query too: a backend that does
+            % not override this never has a write skipped. An override
+            % answers true only when it is certain, and never for a trigger
+            % or an array.
+            %
+            % A backend that overrides this must also do two things, or the
+            % answer is never asked for: call p.noteDeviceRead(v,
+            % obj.DeviceEpoch) where get_parameter has a value the device
+            % itself returned, and call invalidateDeviceValues whenever the
+            % device may have stopped holding it.
+            %
+            % See also: hw.Interface.SkipUnchangedWrites, hw.Parameter.noteDeviceRead
+            tf = false;
+        end
+
+        % invalidateDeviceValues - The device may no longer hold what was read from it
+        function invalidateDeviceValues(obj)
+            % invalidateDeviceValues(obj)
+            % Retire every read-back taken so far as evidence for
+            % SkipUnchangedWrites. Called by a backend on connect, close, a
+            % session reset, a mode change, a refused write; and by the
+            % trial loop before each trial-end read, so that only what THAT
+            % read finds can excuse a write in the dispatch after it.
+            obj.DeviceEpoch = obj.DeviceEpoch + 1;
         end
 
         % displayLabel - Human-readable name for this backend, for operator messages
@@ -559,6 +698,75 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
 
             parameter.UserData.HardwareName = char(hardwareName);
         end
+
+        function tf = sameInSingle_(~, p, deviceValue, value)
+            % tf = sameInSingle_(obj, p, deviceValue, value)
+            % holdsValue for a device that keeps scalars in single
+            % precision: true when both are scalar numbers that agree as
+            % singles. NaN never agrees with anything, so it is written.
+            tf = ~p.isTrigger ...
+                && isscalar(value) && isscalar(deviceValue) ...
+                && (isnumeric(value) || islogical(value)) ...
+                && (isnumeric(deviceValue) || islogical(deviceValue)) ...
+                && single(deviceValue) == single(value);
+        end
+
+        % --- Waveform uploads (SkipUnchangedStimulus) -----------------------
+        % A backend that uploads a 'StimType' waveform asks stimulusOnDevice_
+        % before the transfer, calls noteStimulusSent_ after one that
+        % succeeded, and forgetStimulusSent_ whenever the device may no
+        % longer hold what was sent. SAMPLES must be exactly what goes on
+        % the wire, in the device's own precision: the comparison is
+        % isequal, so a stimulus that differs in one sample is uploaded.
+
+        function tf = stimulusOnDevice_(obj, key, samples)
+            % tf = stimulusOnDevice_(obj, key, samples)
+            % True when the tag named by KEY was last uploaded exactly these
+            % samples and nothing has invalidated that since. Counts the
+            % skip; always false when SkipUnchangedStimulus is off.
+            tf = false;
+            if ~obj.SkipUnchangedStimulus || isempty(obj.StimulusSent_)
+                return
+            end
+            if obj.StimulusSent_.isKey(key) && isequal(obj.StimulusSent_(key), samples)
+                tf = true;
+                obj.StimulusUploadsSkipped = obj.StimulusUploadsSkipped + 1;
+            end
+        end
+
+        function noteStimulusSent_(obj, key, samples)
+            % noteStimulusSent_(obj, key, samples)
+            % Record a successful upload. Kept even when skipping is off, so
+            % switching it on mid-session starts from what is known.
+            if isempty(obj.StimulusSent_)
+                obj.StimulusSent_ = containers.Map('KeyType', 'char', 'ValueType', 'any');
+            end
+            obj.StimulusSent_(key) = samples;
+            obj.StimulusUploads = obj.StimulusUploads + 1;
+        end
+
+        function forgetStimulusSent_(obj, key)
+            % forgetStimulusSent_(obj)        every tag
+            % forgetStimulusSent_(obj, key)   one tag
+            % The device may no longer hold what was uploaded; the next
+            % write of that tag is a real one.
+            if isempty(obj.StimulusSent_)
+                return
+            end
+            if nargin < 2
+                obj.StimulusSent_ = [];
+            elseif obj.StimulusSent_.isKey(key)
+                remove(obj.StimulusSent_, key);
+            end
+        end
+    end
+
+    methods (Hidden)
+        function countSkippedWrite(obj)
+            % countSkippedWrite(obj)
+            % hw.Parameter.set.Value left a write out (SkipUnchangedWrites).
+            obj.WritesSkipped = obj.WritesSkipped + 1;
+        end
     end
 
     methods (Sealed)
@@ -762,6 +970,33 @@ classdef Interface < matlab.mixin.Heterogeneous & matlab.mixin.SetGet
                     'SoundLevel',  s.SoundLevel, ...
                     'Class',       class(s), ...
                     'DisplayName', char(s.DisplayName));
+            end
+        end
+
+        function holdPulse(seconds)
+            % hw.Interface.holdPulse(seconds)
+            % Hold a trigger pulse high for SECONDS without giving up the
+            % MATLAB thread.
+            %
+            % A trigger is a write of 1, a hold, and a write of 0. The hold
+            % used to be pause(), and pause does more than wait: it processes
+            % the event queue, so everything a NewData listener had just
+            % queued -- a table rewrite, three plots -- was RENDERED inside
+            % the ResetTrig pulse, before a single trial parameter had been
+            % written. Measured in a timer callback on R2024b: pause(0.001)
+            % after one uitable change took 24 ms (up to 50), a 1 ms spin
+            % took 1 ms. It also let a queued button press run in the middle
+            % of a dispatch. hw.Bpod made the same choice for the same
+            % reason (see hw.Bpod trigger).
+            %
+            % The spin costs one core for the length of the pulse and
+            % nothing else; graphics are drawn when the timer callback
+            % returns, after the trial has started.
+            %
+            % Parameters:
+            %   seconds - hold time. Non-positive returns at once.
+            t0 = tic;
+            while toc(t0) < seconds
             end
         end
 

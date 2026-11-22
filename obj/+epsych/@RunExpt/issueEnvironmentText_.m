@@ -141,6 +141,10 @@ for i = 1:numel(f)
     v = self.FUNCS.(f{i});
     if isnumeric(v) && isscalar(v)
         v = num2str(v);
+    elseif islogical(v) && isscalar(v)
+        % The trial-record settings: worth their value in a report, since
+        % they decide what the session's data file holds.
+        v = string(v);
     elseif isa(v,'function_handle')
         v = func2str(v);
     elseif ~(ischar(v) || isstring(v))

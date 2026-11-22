@@ -114,6 +114,16 @@ classdef cl_AppetitiveDetection_BehaviorGUI < gui.BehaviorGUI
             % psychophysics.SessionMetrics and follows NewData itself.
         end
 
+        function tf = deferDisplayWork(~)
+            % The staircase plot, history table, scatter and performance
+            % panel draw after the next trial has started rather than before
+            % it (gui.BehaviorGUI.deferDisplayWork). Nothing here reads a
+            % display from onNewData, which is the one thing that would rule
+            % it out: the trial selector and gui.AdaptiveTraining read the
+            % analysis objects and the trial data.
+            tf = true;
+        end
+
         function onModeChange(obj, ~, event)
             % The base class already stopped registered monitors on Stop;
             % polling is left stopped so the final trial state stays

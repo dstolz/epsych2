@@ -602,6 +602,13 @@ end
 assert(built.fields.TimerPeriod >= 0.001 && built.fields.TimerPeriod <= 1, ...
     'The timer period should open on a usable value (got %g)', built.fields.TimerPeriod);
 
+% What a trial record holds of buffers and of stimuli: two checkboxes, which
+% open on the built-in defaults for a project that states neither.
+assert(isfield(built.fields, 'RecordBuffers') && isfield(built.fields, 'RecordStimulusSettings'), ...
+    'The dialog is missing the trial-record checkboxes');
+assert(built.fields.RecordBuffers == true && built.fields.RecordStimulusSettings == false, ...
+    'A project that states neither should open on record-buffers ticked, stimulus-settings clear');
+
 % The four PsychTimer lifecycle callbacks are NOT offered: they name the trial
 % loop, which belongs to the paradigm rather than to a study, and a project
 % made here leaves them inheriting the ep_TimerFcn_* built-ins.
@@ -627,6 +634,10 @@ assert(strcmp(fresh.fields.SavingFcn, 'ep_TimerFcn_Stop'), ...
 assert(fresh.fields.TimerPeriod == 0.025, ...
     'A new project should open on the most recently used timer period (got %g)', ...
     fresh.fields.TimerPeriod);
+% Unlike the fields above, the two checkboxes are NOT seeded from the last
+% project: what a data file contains must not arrive pre-chosen.
+assert(fresh.fields.RecordBuffers == true && fresh.fields.RecordStimulusSettings == false, ...
+    'A new project should open on the built-in trial-record defaults');
 fprintf('PASS: session defaults are seeded, and a new project opens on the last values used\n');
 
 % 7f. The membership dialog and the Settings column -------------------------
@@ -651,6 +662,8 @@ for f = ["DefaultDataPath" "SavingFcn" "TimerPeriod" "BehaviorGUI" ...
          "VideoRootDir" "IntanRootDir"]
     assert(isfield(mdlg.fields, f), 'The membership dialog is missing the %s field', f);
 end
+assert(isfield(mdlg.fields, 'RecordBuffers') && isfield(mdlg.fields, 'RecordStimulusSettings'), ...
+    'The membership dialog is missing the trial-record checkboxes');
 for f = ["TimerStartFcn" "TimerRunTimeFcn" "TimerStopFcn" "TimerErrorFcn"]
     assert(~isfield(mdlg.fields, f), ...
         'The membership dialog must not offer the %s field', f);
@@ -664,6 +677,20 @@ assert(strcmp(mgr.H.table.Data{1,scol}, 'template'), ...
     'A stamped membership should read "template" (got "%s")', mgr.H.table.Data{1,scol});
 firstRec = R.findSubject(mgr.H.table.Data{1,2});
 firstId = firstRec.SubjectID;
+% A yes/no setting is compared as what it means: stating the built-in
+% default is not a divergence, stating the other value is.
+R.updateMembership(firstId, p1, struct('RecordBuffers', true));
+mgr.refresh();
+assert(strcmp(mgr.H.table.Data{1,scol}, 'template'), ...
+    'Stating the built-in default should still read "template" (got "%s")', mgr.H.table.Data{1,scol});
+R.updateMembership(firstId, p1, struct('RecordBuffers', false));
+mgr.refresh();
+assert(strcmp(mgr.H.table.Data{1,scol}, 'edited'), ...
+    'Leaving buffers out should read "edited" (got "%s")', mgr.H.table.Data{1,scol});
+R.updateMembership(firstId, p1, struct('RecordBuffers', NaN));
+mgr.refresh();
+assert(strcmp(mgr.H.table.Data{1,scol}, 'template'), ...
+    'Un-stating it should read "template" again (got "%s")', mgr.H.table.Data{1,scol});
 R.updateMembership(firstId, p1, struct('TimerPeriod', 0.5));
 mgr.refresh();
 assert(strcmp(mgr.H.table.Data{1,scol}, 'edited'), ...
@@ -826,12 +853,13 @@ function built = localDriveProjectDialog(control, name, tagPrefix)
 % dialog (the membership dialog opens from a menu item, which has no
 % ButtonPushedFcn); tagPrefix defaults to the project dialog's.
 %
-% projectDialog_ blocks in uiwait, so nothing written after the click runs until
-% the dialog closes; the inspection has to happen in a timer callback, which
-% fires on the same event queue uiwait is pumping. The timer repeats instead of
-% firing once, and its StopFcn deletes whatever is still standing: a probe that
-% merely missed the window would otherwise hang this test forever rather than
-% fail it.
+% projectDialog_ blocks until it is answered, so nothing written after the click
+% runs until the dialog closes; the inspection has to happen in a timer
+% callback, which fires on the event queue the wait is pumping. The timer
+% repeats instead of firing once, and its StopFcn deletes whatever is still
+% standing: a probe that merely missed the window would otherwise hang this
+% test forever rather than fail it. (Pressing Cancel deletes the dialog, so
+% after an answered probe there is normally nothing left for it to delete.)
 built = struct('found', false, 'links', 0, 'hasArchived', false, ...
     'tabs', strings(1,0), 'fields', struct());
 
@@ -868,7 +896,9 @@ end
         if ~isempty(tbl)
             built.links = size(tbl(1).Data, 1);
         end
-        built.hasArchived = ~isempty(findall(dlg, 'Type','uicheckbox'));
+        % By its text: the session-defaults grid has checkboxes of its own.
+        cbs = findall(dlg, 'Type','uicheckbox');
+        built.hasArchived = any(arrayfun(@(c) startsWith(string(c.Text), "Archived"), cbs));
 
         % The membership dialog has no tabs; an empty findall result is a
         % GraphicsPlaceholder whose .Title would throw.

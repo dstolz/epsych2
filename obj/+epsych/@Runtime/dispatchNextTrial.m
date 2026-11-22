@@ -1,5 +1,6 @@
-function dispatchNextTrial(obj, subjectIdx)
+function dispatchNextTrial(obj, subjectIdx, options)
 % dispatchNextTrial(obj, subjectIdx)
+% dispatchNextTrial(obj, subjectIdx, AllowSkip=true)
 % Dispatch the already selected next trial for one subject.
 %
 % Applies all writable trial parameters for the current NextTrialID, fires the
@@ -8,6 +9,13 @@ function dispatchNextTrial(obj, subjectIdx)
 % Parameters:
 %   obj                           Runtime state object.
 %   subjectIdx (1,1) double       Index of the subject to dispatch.
+%   AllowSkip (1,1) logical       An interface with SkipUnchangedWrites on may
+%                                 leave out a write the device was read back
+%                                 holding since the trial ended. Default false:
+%                                 only the trial loop passes true, because only
+%                                 it has just read the device. The first
+%                                 dispatch of a run, a regenerated trial and
+%                                 any other caller write everything.
 %
 % Returns:
 %   None. Updates parameter handles and notifies listeners.
@@ -15,6 +23,7 @@ function dispatchNextTrial(obj, subjectIdx)
 arguments
     obj (1,1) epsych.Runtime
     subjectIdx (1,1) double {mustBeInteger,mustBePositive}
+    options.AllowSkip (1,1) logical = false
 end
 
 T = obj.TRIALS(subjectIdx);
@@ -36,12 +45,37 @@ dispatchIdx = notReadOnly & (updateEveryTrial | (setOnce & T.TrialIndex == 1));
 % vvvvvvvvvvvvv  NEW TRIAL SEQUENCE  vvvvvvvvvvvvv
 vprintf(2,'Trial #%d: New Trial Sequence for box %d',T.TrialIndex,subjectIdx)
 
+% Trial-loop timing, when the session asked for it. Outside a trial boundary
+% (the first dispatch, a regenerate) the marks are ignored.
+ts = obj.TickStats;
+timed = ~isempty(ts);
+
+% From here to the end of the NewTrial pulse every interface knows that what
+% it is asked to write belongs to a trial dispatch (hw.Interface.InDispatch).
+% A backend then leaves its per-write success record to the one summary
+% record below: with the log taking every level by default, a record per
+% parameter from here plus another per write from the backend was two
+% dbstack-and-file-write records for each of some forty parameters, on every
+% trial, while the subject waited. Failures are still logged where they
+% happen, and a write made outside a dispatch keeps its own record.
+%
+% DispatchMaySkip is the second thing they are told: that this dispatch
+% follows a trial-end read of the device, so a write of what was just read
+% back may be left out (hw.Interface.SkipUnchangedWrites, off by default).
+% Never on trial 1, whose values the device has not been given yet.
+maySkip = options.AllowSkip && T.TrialIndex > 1;
+ifaces = obj.Interfaces;
+for k = 1:numel(ifaces)
+    ifaces(k).InDispatch = true;
+    ifaces(k).DispatchMaySkip = maySkip && ifaces(k).SkipUnchangedWrites;
+end
+endDispatch = onCleanup(@() localEndDispatch(ifaces));
+
 % 1. Send trigger to reset components before updating parameters
-vprintf(4,'Hardware Trigger for ResetTrig')
 obj.TRIGGERS(subjectIdx).ResetTrig.Trigger();
+if timed, ts.mark("reset"); end
 
 % 2. Dispatch write parameters for this trial (Access ~= 'Read')
-vprintf(4,'Update parameter tags')
 P = T.parameters(dispatchIdx);
 trialRow = T.trials(T.NextTrialID, dispatchIdx);
 
@@ -49,10 +83,17 @@ trialRow = T.trials(T.NextTrialID, dispatchIdx);
 % dispatched parameter's value (e.g. RespWinDelay referencing a randomized
 % StimDelay) must be assigned after that parameter, or the expression
 % evaluates against the previous trial's value.
+%
+% The order is derived from the Expression TEXT, so the text is part of the
+% cache key: an expression edited mid-session (the designer, a phase load)
+% leaves the same handles in the same order, and a key of handles alone kept
+% serving the permutation the old text asked for.
 cache = obj.DispatchOrderCache_;
+exprs = [P.Expression];
 cacheValid = numel(cache) >= subjectIdx ...
     && numel(cache(subjectIdx).params) == numel(P) ...
-    && all(cache(subjectIdx).params == P);
+    && all(cache(subjectIdx).params == P) ...
+    && isequal(cache(subjectIdx).exprs, exprs);
 if ~cacheValid
     % Resolution scope mirrors hw.Parameter.evaluateExpression_: every
     % parameter of every module across all interfaces.
@@ -66,6 +107,7 @@ if ~cacheValid
         end
     end
     cache(subjectIdx).params = P;
+    cache(subjectIdx).exprs = exprs;
     cache(subjectIdx).order = hw.Parameter.orderByDependencies(P, scope);
     obj.DispatchOrderCache_ = cache;
 end
@@ -73,23 +115,55 @@ dispatchOrder = obj.DispatchOrderCache_(subjectIdx).order;
 P = P(dispatchOrder);
 trialRow = trialRow(dispatchOrder);
 
-% 3. Assign next trial parameter values to the parameter objects. 
+% 3. Assign next trial parameter values to the parameter objects.
 for j = 1:numel(P)
-    vprintf(4,'Trial #%d: %s = %g', ...
-        T.TrialIndex, ...
-        P(j).Name, ...
-        trialRow{j})
-
     P(j).Value = trialRow{j};
 end
 
+% One record for the whole dispatch, listing what each parameter was actually
+% given -- after randomization, its Expression and clamping, which is why the
+% value comes from the parameter and not from the trial row. Built only when
+% a destination wants trace records: it is a string per parameter.
+if visenabled(4)
+    parts = cell(1, numel(P));
+    for j = 1:numel(P)
+        [v, known] = P(j).hostValue();
+        if ~known, v = trialRow{j}; end
+        parts{j} = [P(j).Name '=' P(j).formatValue(v)];
+    end
+    vprintf(4, 'Trial #%d dispatch for box %d: %s', T.TrialIndex, subjectIdx, strjoin(parts, ', '))
+end
+if timed, ts.mark("writes"); end
+
 % 4. Trigger new trial
-vprintf(4,'Hardware Trigger for NewTrial')
 obj.TRIGGERS(subjectIdx).NewTrial.Trigger();
+if timed, ts.mark("trigger"); end
+
+% The dispatch is over: a listener that writes a parameter from here on is
+% not part of it.
+clear endDispatch
+
+% The trial has started. Whatever the displays set aside while it was being
+% prepared is drawn now, and before the NewTrial event, so every listener
+% still sees a trial's data arrive before the next trial is announced
+% (epsych.EventHub.defer). Nothing is queued outside a trial boundary.
+obj.EVENTS.flushDeferred();
+if timed, ts.mark("render"); end
 
 % 5. Notify whomever is listening of new trial
-vprintf(4,'Notify listeners with new trial data')
 evtdata = epsych.TrialsData(T);
 obj.EVENTS.notify('NewTrial',evtdata);
+if timed, ts.mark("newTrial"); end
 
+end
+
+
+function localEndDispatch(ifaces)
+% Clear the in-dispatch flag, on every exit path.
+for k = 1:numel(ifaces)
+    if isvalid(ifaces(k))
+        ifaces(k).InDispatch = false;
+        ifaces(k).DispatchMaySkip = false;
+    end
+end
 end

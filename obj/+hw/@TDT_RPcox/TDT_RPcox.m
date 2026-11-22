@@ -42,6 +42,15 @@ classdef TDT_RPcox < hw.Interface
 
     properties (Access = private)
         ModeState_ (1,1) hw.DeviceState = hw.DeviceState.Idle
+
+        % The connection probe's last answer and when it was taken, for
+        % ioReady. Empty linkTic_ means "probe next time".
+        linkTic_ = []
+        linkUp_ (1,1) logical = false
+
+        % When ModeState_ was last asked of the device; empty = ask next
+        % time (queryModeState_).
+        modeTic_ = []
     end
 
     properties (SetObservable,AbortSet)
@@ -50,6 +59,21 @@ classdef TDT_RPcox < hw.Interface
 
     properties (Constant)
         Type = "TDT_RPcox"
+    end
+
+    properties (Constant, Hidden)
+        % Seconds a trigger tag is held high between the write of 1 and the
+        % write of 0 (hw.Interface.holdPulse).
+        PULSE_HOLD = 0.001
+
+        % Seconds ioReady may answer from its last connection probe. The
+        % probe is a GetStatus COM call per module; made before every read,
+        % write and trigger it was most of the COM traffic of a session.
+        PROBE_INTERVAL = 0.25
+
+        % Seconds a mode query may be answered from the last one
+        % (queryModeState_).
+        MODE_INTERVAL = 0.1
     end
 
 
@@ -122,7 +146,55 @@ classdef TDT_RPcox < hw.Interface
             end
         end
 
+        function tf = ioReady(obj)
+            % tf = ioReady(obj)
+            % The I/O path's connection check: the GetStatus probe behind
+            % IsConnected, taken at most once per PROBE_INTERVAL.
+            %
+            % IsConnected itself stays live. What is cached here is only the
+            % answer the hot path acts on, and everything that can change it
+            % -- connect, close, a circuit reload, a write that failed, a
+            % read that came back empty, a COM error -- drops the cache
+            % (dropLink_), so a stale "connected" can outlive a dead link by
+            % at most one call.
+            %
+            % See also: hw.Interface.ioReady
+            if isempty(obj.HW)
+                % No device handles at all: never a cached "connected", or a
+                % read that falls back to the stored value would come
+                % straight back here.
+                tf = false;
+                return
+            end
+            if ~isempty(obj.linkTic_) && toc(obj.linkTic_) < obj.PROBE_INTERVAL
+                tf = obj.linkUp_;
+                return
+            end
+            tf = obj.IsConnected;
+            obj.linkUp_ = tf;
+            obj.linkTic_ = tic;
+            if ~tf
+                % A device that stopped answering may come back power
+                % cycled, with its buffers empty and its tags at their
+                % circuit defaults.
+                obj.forgetStimulusSent_();
+                obj.invalidateDeviceValues();
+            end
+        end
+
+        function tf = holdsValue(obj, p, deviceValue, value)
+            % tf = holdsValue(obj, p, deviceValue, value)
+            % A scalar tag read back as DEVICEVALUE already holds VALUE when
+            % the two agree in single precision: TDTRP reads and writes
+            % scalars as F32, so that is all the device can tell apart.
+            % Triggers and arrays are always written.
+            %
+            % See also: hw.Interface.SkipUnchangedWrites
+            tf = obj.sameInSingle_(p, deviceValue, value);
+        end
+
         function connect(obj)
+            obj.dropLink_();
             if obj.IsConnected
                 return
             end
@@ -164,10 +236,12 @@ classdef TDT_RPcox < hw.Interface
             end
 
             obj.ensureUniqueParameterNames();
+            obj.dropLink_();
             obj.ModeState_ = obj.mode;
         end
 
         function disconnect(obj)
+            obj.dropLink_();
             if ~obj.IsConnected
                 return
             end
@@ -191,6 +265,7 @@ classdef TDT_RPcox < hw.Interface
             %
             % Runs before the mode write and before the PsychTimer exists,
             % so nothing can read the device while the circuit is out.
+            obj.dropLink_();
             if ~obj.IsConnected || isempty(obj.HW)
                 return
             end
@@ -203,6 +278,9 @@ classdef TDT_RPcox < hw.Interface
                 module.Fs = obj.HW(idx).RP.GetSFreq;
             end
 
+            % The circuit was out and is back: whatever the probe said before
+            % the reload says nothing about now.
+            obj.dropLink_();
             obj.resetParametersToDesign_();
         end
 
@@ -385,6 +463,7 @@ classdef TDT_RPcox < hw.Interface
             end
 
             obj.Module = modules;
+            obj.dropLink_();
             if ~isempty(modules) && isfield(modules(1).Info, 'ConnectionType') && ~isempty(modules(1).Info.ConnectionType)
                 obj.ConnectionType = localNormalizeConnectionType_(modules(1).Info.ConnectionType);
             end
@@ -463,6 +542,7 @@ classdef TDT_RPcox < hw.Interface
 
 
         function close_interface(obj)
+            obj.dropLink_();
             if isempty(obj.HW)
                 return
             end
@@ -476,6 +556,7 @@ classdef TDT_RPcox < hw.Interface
             end
 
             obj.HW = TDTRP.empty(1, 0);
+            obj.dropLink_();
         end
 
     end
@@ -531,7 +612,7 @@ classdef TDT_RPcox < hw.Interface
                 P = obj.find_parameter(name);
             end
 
-            if ~obj.IsConnected || isempty(obj.HW)
+            if ~obj.ioReady() || isempty(obj.HW)
                 t = now;
                 return
             end
@@ -547,18 +628,26 @@ classdef TDT_RPcox < hw.Interface
             % used to name an undefined variable, so either one threw
             % "Unrecognized function or variable 'module'" instead of this.
             if ~e
+                obj.dropLink_();
                 error('hw:TDT_RPcox:TriggerFailed', ...
                     'Unable to trigger "%s" on module "%s": writing 1 to the tag failed.', ...
                     trig, P.Module.Label);
             end
-            pause(0.001)
+            % Not pause(): that would render every pending graphics update
+            % inside the pulse (hw.Interface.holdPulse).
+            hw.Interface.holdPulse(obj.PULSE_HOLD)
 
             % The edge went out; a failed reset is logged rather than thrown,
             % as it always was meant to be, so the caller still gets t.
             e = hwHandle.write(trig,0);
             if e
-                vprintf(3,'Triggered "%s"',P.Name)
+                % hw.Parameter.Trigger logs the same event; one record per
+                % pulse is enough while a dispatch is in progress.
+                if ~obj.InDispatch
+                    vprintf(3,'Triggered "%s"',P.Name)
+                end
             else
+                obj.dropLink_();
                 vprintf(0,1,'Triggered "%s" but could not reset it to 0 on module "%s"; the tag may still be high', ...
                     trig, P.Module.Label)
             end
@@ -572,7 +661,7 @@ classdef TDT_RPcox < hw.Interface
         % returns TRUE if successful, FALSE otherwise
         function e = set_parameter(obj,name,value)
 
-            if ~obj.IsConnected || isempty(obj.HW)
+            if ~obj.ioReady() || isempty(obj.HW)
                 e = true;
                 return
             end
@@ -609,14 +698,32 @@ classdef TDT_RPcox < hw.Interface
                     continue
                 end
 
+                % Any other write to a tag a waveform was uploaded to changes
+                % what the buffer holds, so that upload is no longer known.
+                if ~isempty(obj.StimulusSent_)
+                    obj.forgetStimulusSent_(obj.stimulusKey_(p, parameterName));
+                end
+                % And a write made here directly, past hw.Parameter.set.Value,
+                % makes this parameter's last read-back out of date.
+                if obj.SkipUnchangedWrites
+                    p.forgetDeviceValue();
+                end
+
                 e = hwHandle.write(parameterName,v);
                 if e
                     % Format the value just written rather than reading
                     % p.ValueStr back: the read-back is a hardware round trip
                     % per parameter per trial, and on a write-only tag it has
-                    % nothing to return.
-                    vprintf(4,'Updated parameter: %s = %s',p.Name,p.formatValue(v))
+                    % nothing to return. During a trial dispatch the
+                    % dispatcher's one summary record carries every value, so
+                    % a second record per write is left out (InDispatch).
+                    if ~obj.InDispatch
+                        vprintf(4,'Updated parameter: %s = %s',p.Name,p.formatValue(v))
+                    end
                 else
+                    % A write the device refused may mean the link is gone:
+                    % make the next call ask.
+                    obj.dropLink_();
                     vprintf(0,1,'Failed to write value to "%s"',p.Name)
                 end
             end
@@ -647,7 +754,7 @@ classdef TDT_RPcox < hw.Interface
                     silenceParameterNotFound=options.silenceParameterNotFound);
             end
 
-            if ~obj.IsConnected || isempty(obj.HW)
+            if ~obj.ioReady() || isempty(obj.HW)
                 value = cell(size(P));
                 for i = 1:length(P)
                     value{i} = P(i).Value;
@@ -660,14 +767,30 @@ classdef TDT_RPcox < hw.Interface
                 end
                 return
             end
-            
-            value = cell(size(P));
-            for i = 1:length(P)
-                p = P(i);
-                parameterName = obj.getHardwareParameterName(p);
-                hwHandle = obj.HW(p.Module.Index);
 
-                value{i} = hwHandle.read(parameterName);
+            value = cell(size(P));
+            try
+                for i = 1:length(P)
+                    p = P(i);
+                    parameterName = obj.getHardwareParameterName(p);
+                    hwHandle = obj.HW(p.Module.Index);
+
+                    value{i} = hwHandle.read(parameterName);
+
+                    % A tag that reads back empty is a tag the device did
+                    % not answer for; the link may be gone, so the next call
+                    % asks instead of trusting the cached probe.
+                    if isempty(value{i})
+                        obj.dropLink_();
+                    elseif obj.SkipUnchangedWrites
+                        % What the device itself just returned: the evidence
+                        % a later dispatch write may be left out on.
+                        p.noteDeviceRead(value{i}, obj.DeviceEpoch);
+                    end
+                end
+            catch ME
+                obj.dropLink_();
+                rethrow(ME)
             end
 
 
@@ -683,7 +806,7 @@ classdef TDT_RPcox < hw.Interface
     end
 
     methods (Access = private)
-        function e = writeStimulus_(~, p, stim, parameterName, hwHandle)
+        function e = writeStimulus_(obj, p, stim, parameterName, hwHandle)
             % e = writeStimulus_(obj, p, stim, parameterName, hwHandle)
             % Write a 'StimType' parameter to its RPvds tag as a waveform.
             %
@@ -695,9 +818,16 @@ classdef TDT_RPcox < hw.Interface
             % longer than the tag can hold, so a stimulus that overruns the
             % circuit's buffer is reported rather than silently truncated.
             %
+            % The stimulus is regenerated on every call; the TRANSFER is left
+            % out when the tag was last uploaded these same samples
+            % (hw.Interface.SkipUnchangedStimulus). The comparison is made in
+            % single precision because that is what goes on the wire:
+            % TDTRP.write sends WriteTagVEX(..., 'F32', ...).
+            %
             % Returns:
-            %   e - True when the waveform was written (or there was nothing to
-            %       write), false when the tag write failed.
+            %   e - True when the waveform was written, was already on the
+            %       device, or there was nothing to write; false when the tag
+            %       write failed.
 
             if isempty(stim)
                 e = true;
@@ -722,18 +852,56 @@ classdef TDT_RPcox < hw.Interface
                 return
             end
 
+            key = obj.stimulusKey_(p, parameterName);
+            samples = single(reshape(payload.Signal, 1, []));
+            if obj.stimulusOnDevice_(key, samples)
+                e = true;
+                if ~obj.InDispatch
+                    vprintf(4,'Parameter %s = %s is already on the device (%d samples); not uploaded again', ...
+                        p.Name, payload.DisplayName, payload.N)
+                end
+                return
+            end
+
             e = hwHandle.write(parameterName, payload.Signal);
             if e
-                vprintf(4,'Updated parameter: %s = %s (%d samples @ %g Hz)', ...
-                    p.Name, payload.DisplayName, payload.N, payload.Fs)
+                obj.noteStimulusSent_(key, samples);
+                if ~obj.InDispatch
+                    vprintf(4,'Updated parameter: %s = %s (%d samples @ %g Hz)', ...
+                        p.Name, payload.DisplayName, payload.N, payload.Fs)
+                end
             else
+                % What the buffer holds after a refused transfer is unknown.
+                obj.forgetStimulusSent_(key);
+                obj.dropLink_();
                 vprintf(0,1,'Failed to write stimulus "%s" (%d samples) to "%s"', ...
                     payload.DisplayName, payload.N, parameterName)
             end
         end
 
+        function key = stimulusKey_(~, p, parameterName)
+            % The name a buffer tag's last upload is remembered under: the
+            % module's index and the tag, since two modules may each have a
+            % tag of the same name.
+            key = sprintf('%d|%s', p.Module.Index, parameterName);
+        end
+
+        function dropLink_(obj)
+            % Forget the cached connection probe and the cached mode, so the
+            % next ioReady and the next mode query ask the device -- and
+            % forget which waveforms were uploaded, so the next stimulus
+            % write is a real one. Everything that calls this is something
+            % after which the device may not hold what it held: a connect, a
+            % circuit reload, a mode change, a write it refused, a COM error.
+            obj.linkTic_ = [];
+            obj.modeTic_ = [];
+            obj.forgetStimulusSent_();
+            obj.invalidateDeviceValues();
+        end
+
         function applyModeState_(obj, mode)
             obj.ModeState_ = mode;
+            obj.dropLink_();
             if ~obj.IsConnected || isempty(obj.HW)
                 return
             end
@@ -743,11 +911,23 @@ classdef TDT_RPcox < hw.Interface
             else
                 obj.HW.halt;
             end
+            obj.dropLink_();
             vprintf(2,'HW mode: %s',char(obj.queryModeState_()))
         end
 
         function mode = queryModeState_(obj)
-            if ~obj.IsConnected || isempty(obj.HW)
+            % The session reads mode on every 10 ms tick. Answer from the
+            % last query for MODE_INTERVAL; everything that can change the
+            % answer from this side -- a mode write, connect, disconnect, a
+            % circuit reload -- drops the cache (dropLink_), which is what
+            % keeps "a freshly loaded circuit already reports Record" true
+            % for the AbortSet comparison a mode write makes.
+            if ~isempty(obj.modeTic_) && toc(obj.modeTic_) < obj.MODE_INTERVAL
+                mode = obj.ModeState_;
+                return
+            end
+
+            if ~obj.ioReady() || isempty(obj.HW)
                 mode = obj.ModeState_;
                 return
             end
@@ -768,6 +948,7 @@ classdef TDT_RPcox < hw.Interface
                     mode = obj.ModeState_;
             end
             obj.ModeState_ = mode;
+            obj.modeTic_ = tic;
         end
     end
 

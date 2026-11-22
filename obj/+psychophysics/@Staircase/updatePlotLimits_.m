@@ -23,8 +23,17 @@ if isempty(x) || isempty(y)
     return
 end
 
-xlim(ax, padded(x, 0.02, 0.5));
-ylim(ax, padded(y, 0.08, 1));
+% Written only when they move. The x limits grow with every trial, but the
+% y limits change only when the track reaches a new extreme, and writing
+% them unchanged still cost a layout pass per trial.
+xl = padded(x, 0.02, 0.5);
+yl = padded(y, 0.08, 1);
+if ~isequal(ax.XLim, xl) || ~strcmp(ax.XLimMode, 'manual')
+    xlim(ax, xl);
+end
+if ~isequal(ax.YLim, yl) || ~strcmp(ax.YLimMode, 'manual')
+    ylim(ax, yl);
+end
 end
 
 function v = collect(varargin)

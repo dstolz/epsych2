@@ -40,6 +40,20 @@ classdef RunExpt < handle
         % means "fall back to DefaultDataPath", exactly as the preference did.
         PATHS (1,1) struct = struct('VideoRootDir','','IntanRootDir','','IntanSettingsFile','') % Session-level video and Intan recording paths
         IsClosing (1,1) logical = false                                                         % True while the close sequence is in progress; prevents re-entrant callbacks
+
+        % Stop the session when ANY interface reports Idle, on a session with
+        % more than one interface. Off by default, because it never has been
+        % on there: the check this class always made,
+        %   any(get(Interfaces,'mode') == hw.DeviceState.Idle)
+        % only ever worked for a session with ONE interface. On a mixed
+        % array -- software plus hardware, i.e. every real rig -- get()
+        % returns a cell of EMPTY values without calling any backend's
+        % get.mode (measured, R2024b), so the comparison was always false.
+        % Turning this on is therefore a change in when sessions stop, and
+        % each backend in the protocol must report a run state while it runs
+        % (see hardwareIdle_). Set from preference EPsych/StopOnIdleHardware
+        % at every Run when that preference exists.
+        StopOnIdleHardware (1,1) logical = false
     end
 
     % Whether THIS session records webcam video, which is what the Record Video
@@ -69,6 +83,7 @@ classdef RunExpt < handle
         BenchmarkRunning_ (1,1) logical = false
         BenchmarkStopRequested_ (1,1) logical = false
         BenchmarkLastYield_ (1,1) uint64 = uint64(0)   % tic of the last drawnow the benchmark's Stop poll made
+        IdleCheckTic_ = []   % tic of the last all-interface idle check (hardwareIdle_); empty = check next tick
     end
 
     methods
@@ -503,6 +518,57 @@ classdef RunExpt < handle
     % here. Scoped to epsych.SubjectRoster rather than made public: the CONFIG
     % slot-reuse rule and the two refreshes are internals, but they are exactly
     % the internals a batch commit has to drive.
+    % Public so tmp/smoke_test_idle_watchdog.m can call it; hidden because it
+    % is the timer tick's own question, not an operator's.
+    methods (Hidden)
+        function tf = hardwareIdle(self)
+            % tf = hardwareIdle(self)
+            % Whether the session should stop because hardware went Idle;
+            % asked by PsychTimerRunTime on every tick.
+            %
+            % ONE interface (a software-only session): its mode is read on
+            % every tick, which is what the original check did and all it
+            % ever did.
+            %
+            % SEVERAL interfaces: nothing, unless StopOnIdleHardware is on --
+            % again what the original check did, since get() on a mixed
+            % interface array reaches no backend. With it on, every
+            % interface that is not deliberately offline is asked its mode
+            % at most four times a second. The TDT backends answer that from
+            % a short-lived cache. hw.Bpod must not come to depend on being
+            % asked here: its get.mode drives its byte pump, and the per-tick
+            % TrialComplete read drives that as well.
+            %
+            % A backend that never leaves Idle while a session runs would
+            % stop every session the moment this is turned on, so check the
+            % protocol's interfaces before enabling it.
+            I = self.RUNTIME.Interfaces;
+            if isscalar(I)
+                tf = isequal(I.mode, hw.DeviceState.Idle);
+                return
+            end
+
+            tf = false;
+            if ~self.StopOnIdleHardware
+                return
+            end
+            if ~isempty(self.IdleCheckTic_) && toc(self.IdleCheckTic_) < 0.25
+                return
+            end
+            self.IdleCheckTic_ = tic;
+            for k = 1:numel(I)
+                if I(k).RunOffline
+                    continue
+                end
+                if isequal(I(k).mode, hw.DeviceState.Idle)
+                    vprintf(0, 1, 'Hardware interface %s reports Idle; stopping the session.', class(I(k)))
+                    tf = true;
+                    return
+                end
+            end
+        end
+    end
+
     methods (Access = {?epsych.RunExpt, ?epsych.SubjectRoster})
         appendSubjectToConfig_(self, S, pfn, protocol, roster) % Write one subject, its protocol, and its roster link into the next CONFIG slot
         ClearConfig(self)                                  % Reset CONFIG to empty defaults and update program state if not running
@@ -620,11 +686,15 @@ classdef RunExpt < handle
 
         function PsychTimerRunTime(self)
             % Timer runtime callback; stops the experiment automatically if hardware enters idle state.
-            if any(get(self.RUNTIME.Interfaces,'mode') == hw.DeviceState.Idle)
+            ts = self.RUNTIME.TickStats;
+            timed = ~isempty(ts);
+            if timed, ts.tickBegin(); end
+            if self.hardwareIdle()
                 self.ExptDispatch("Stop")
                 return
             end
             self.RUNTIME = feval(self.FUNCS.TIMERfcn.RunTime, self.RUNTIME);
+            if timed, ts.tickEnd(); end
         end
 
         function PsychTimerError(self, evt)
@@ -658,6 +728,15 @@ classdef RunExpt < handle
             self.StopVideoRecording_;
             vprintf(3,'PsychTimerStop:Calling timer Stop function: %s',self.FUNCS.TIMERfcn.Stop)
             self.RUNTIME = feval(self.FUNCS.TIMERfcn.Stop, self.RUNTIME);
+            % Trial-loop timing, when this run recorded any (preference
+            % EPsych/TickStats). It stays on RUNTIME.TickStats afterwards.
+            if ~isempty(self.RUNTIME.TickStats)
+                try
+                    self.RUNTIME.TickStats.report();
+                catch ME
+                    vprintf(0,1,ME);
+                end
+            end
             vprintf(3,'PsychTimerStop:Calling UpdateGUIstate')
             self.UpdateGUIstate
             vprintf(3,'PsychTimerStop:Calling SaveDataCallback')
@@ -699,6 +778,13 @@ classdef RunExpt < handle
             F.TIMERfcn.Stop    = 'ep_TimerFcn_Stop';
             F.TIMERfcn.Error   = 'ep_TimerFcn_Error';
             F.TimerPeriod      = 0.01;
+
+            % What a trial record holds of buffers and of stimuli; handed to
+            % the runtime at Run (ExptDispatch). The membership states them
+            % (the project's Session Defaults), and every commit writes
+            % both, stated or not -- epsych.SubjectRoster.assignToSession.
+            F.RecordBuffers          = epsych.SubjectRoster.SESSION_FLAG_DEFAULTS.RecordBuffers;
+            F.RecordStimulusSettings = epsych.SubjectRoster.SESSION_FLAG_DEFAULTS.RecordStimulusSettings;
         end
 
         function P = GetDefaultPaths(self)

@@ -34,7 +34,14 @@ function report = assignToSession(self, runExpt, subjectIds, options)
 %               RecordVideo settings set the session's Record Video toggle:
 %               any subject asking to be filmed turns it on, else any
 %               refusing turns it off, else it returns to the rig's own
-%               choice. With no project context, no settings are applied at all.
+%               choice. With no project context, no settings are applied at all
+%               -- with one exception. What a trial record holds of buffers
+%               and of stimuli (SESSION_FLAG_FIELDS: RecordBuffers,
+%               RecordStimulusSettings) is put on the session at EVERY
+%               commit: the memberships' agreed value, or the built-in
+%               default when they state nothing or there is no project. They
+%               decide what a data file contains, so one study's choice is
+%               never left on the session for the next.
 %   BoxIDs    - per-subject box, NaN to auto-assign the lowest free one.
 %   Protocols - per-subject .eprot path, '' to resolve from protocol memory.
 %   ReplaceExisting - true to make the batch the session's whole subject list:
@@ -218,6 +225,10 @@ if ~isempty(options.ProjectID)
         % memberships in one project are verbatim stamps of one template and
         % diverge only through a template edit between adds or a deliberate
         % per-subject edit -- exactly what must surface here.
+        % The yes/no settings are the one exception, compared as what
+        % they MEAN: "not stated" is the built-in default by definition
+        % (sessionFlagValue), so a member stamped before a template
+        % stated the default and one stamped after are not a divergence.
         report.mismatch = localSessionMismatch(memberships, {planned.Name});
         if ~isempty(report.mismatch)
             report.aborted = true;
@@ -343,6 +354,10 @@ if ~isempty(memberships)
     notes = [notes, localApplyRecordVideo(runExpt, memberships, {planned.Name})];
 end
 
+% What a trial record holds of buffers and of stimuli is put on the session
+% at EVERY commit, stated or not, project or none: see localApplyTrialRecord.
+notes = [notes, localApplyTrialRecord(runExpt, memberships)];
+
 runExpt.UpdateSubjectList
 runExpt.CheckReady
 
@@ -431,6 +446,9 @@ function mis = localSessionMismatch(memberships, names)
 mis = struct('Field', {}, 'Values', {}, 'Names', {});
 for f = epsych.SubjectRoster.SESSION_FIELDS
     vals = cellfun(@(m) m.(f{1}), memberships, 'uni', 0);
+    if any(strcmp(f{1}, epsych.SubjectRoster.SESSION_FLAG_FIELDS))
+        vals = cellfun(@(v) epsych.SubjectRoster.sessionFlagValue(f{1}, v), vals, 'uni', 0);
+    end
 
     groups = {};
     groupNames = {};
@@ -490,6 +508,9 @@ if ischar(v) || isstring(v)
     else
         s = sprintf('"%s"', char(v));
     end
+elseif islogical(v) && isscalar(v)
+    yn = {'no', 'yes'};
+    s = yn{1 + v};
 elseif isnumeric(v) && all(isnan(v(:)))
     s = '(inherit)';
 else
@@ -594,6 +615,42 @@ end
 if ~isempty(applied)
     vprintf(1, 'Project "%s" set the session %s.', projectName, strjoin(applied, ', '));
     notes{end+1} = sprintf('Project %s applied.', strjoin(applied, ', '));
+end
+end
+
+% -----------------------------------------------------------------------
+function notes = localApplyTrialRecord(runExpt, memberships)
+% Put the yes/no session settings (SESSION_FLAG_FIELDS) on the session --
+% FUNCS.RecordBuffers and FUNCS.RecordStimulusSettings, which ExptDispatch
+% hands to the runtime at Run -- returning a clause for the report when the
+% session will record something other than the built-in default.
+%
+% Unlike the text settings these are written at every commit rather than
+% only when the membership names them. "Leave the session's own value alone"
+% is right for a data path; here it would let one study's choice of what a
+% data file contains ride into the next study's files unasked. So a
+% membership that states nothing, and a batch with no project at all, both
+% put the built-in default back (sessionFlagValue). The batch was refused
+% above unless every membership means the same, so the first speaks for all.
+notes = {};
+for f = epsych.SubjectRoster.SESSION_FLAG_FIELDS
+    stored = NaN;
+    if ~isempty(memberships)
+        stored = memberships{1}.(f{1});
+    end
+    runExpt.FUNCS.(f{1}) = epsych.SubjectRoster.sessionFlagValue(f{1}, stored);
+end
+
+said = {};
+if ~runExpt.FUNCS.RecordBuffers
+    said{end+1} = 'buffers are left out of the trial record';
+end
+if runExpt.FUNCS.RecordStimulusSettings
+    said{end+1} = 'stimuli are recorded as their settings';
+end
+if ~isempty(said)
+    notes{end+1} = sprintf('In this session %s.', strjoin(said, ' and '));
+    vprintf(1, 'In this session %s.', strjoin(said, ' and '));
 end
 end
 

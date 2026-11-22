@@ -174,8 +174,10 @@ Rules that matter:
   the parent) rather than at the first save.
   The **MEMBERSHIP carries the session settings a paradigm decides**
   (`SESSION_FIELDS`: `DefaultDataPath`, `SavingFcn`, `BehaviorGUI`,
-  `TimerPeriod`, the four `Timer*Fcn` PsychTimer callbacks, and the recording
-  roots): selecting a subject selects all config required to run it. The
+  `TimerPeriod`, the four `Timer*Fcn` PsychTimer callbacks, the recording
+  roots, and the two yes/no trial-record settings `RecordBuffers` and
+  `RecordStimulusSettings` — see The Trial Boundary & Runtime Performance):
+  selecting a subject selects all config required to run it. The
   project's Session Defaults are a **template**, stamped verbatim at `assign`
   (and in `copyProject`'s member copies — from the NEW project's template,
   never the source memberships); later template edits reach existing members
@@ -949,7 +951,7 @@ in `SubjectRegistry.KNOWN_ADAPTERS`.
   `ValueChangingFcn` (the manager's documented dropped-characters trap). The
   editing methods are public so a script can do what the table does
   (documentation/gui/gui_ParameterDefaultsEditor.md)
-- **gui.SubjectManager**: the Subjects & Projects window, and the operator's only path to putting subjects in a session — the RunExpt `add_subject` toolbar button and the new Subjects menu (Ctrl+B) both open it. **Add Checked to Session** REPLACES the session's subject list rather than appending to it (`assignToSession`'s `ReplaceExisting`) — what is ticked is the operator's answer to "who is running", and a leftover animal would keep dispatching trials in its box; the displaced names go in the commit report, and the button and its tool say so in a tooltip. Projects are a `uilistbox`, subjects a `uitable` because each row carries its own box before commit; Protocol is read-only in the grid because `uitable`'s `ColumnFormat` is per-column, so a dropdown there could not offer per-row protocols. **Copy...** (also `Project > Copy Project...` and a two-folders tool) starts a study's next phase from one that already works: it asks the subjects question FIRST in a `uiconfirm` — with subjects, or settings only, skipped entirely for a project with no active members — because that is the one thing the edit dialog cannot show, then opens the ordinary dialog titled `Copy Project` on a non-colliding `(copy)` name, so nothing is written until OK. Copied subjects stay in the source too (membership is many-to-many); the roster's `IncludeRetired`/`CopyProtocolMemory` are script-only. The project dialog has two tabs: **Project** (identity, links, archived) and **Session Defaults**, which is where the settings that moved off Customize are set — protocol, data path, saving function, behavior GUI, timer period, video and Intan paths. Nothing there opens blank: each field is seeded from its MRU (`ep_RunExpt_Subjects/Recent<Field>`, written only on OK) and then the machine pref, and OK refuses a blank one; `DefaultProtocol` and `IntanSettingsFile` are the two deliberate exceptions. The behavior GUI dropdown is fed by the behavior GUIs other projects in the roster use, not by the `RecentBehaviorGUI` pref, so it works with no session open. All state lives in `epsych.SubjectRoster`; every callback ends in `refresh`. On a rig with no roster file chosen the window opens *unbound* — header `Roster: (no file chosen)`, an explanation where the table goes, and everything off EXCEPT New Project / New Subject / Import, because clicking one of those three is how `ensureRoster_` asks for the file. That prompt loops with two exits (name a file, or close the window): "carry on without one" is never offered, since it would mean filling in a record with nowhere to save it. Browsing never prompts. A configured path whose FOLDER is gone (share moved, drive unmounted, temp dir cleaned up) is treated the same way and marked `(folder not found)` — otherwise it is indistinguishable from a fresh empty roster, and `saveAtomic_` would re-create that dead folder and save into it. The header shows the FULL path plus a Change... button, redundantly with the toolbar tool and File menu, because an icon-only toolbar is no help to someone whose roster is not where they expected. "New Subject..." routes through `RunExpt.dispatchAddSubjectFcn_` so a lab's custom `FUNCS.AddSubjectFcn` still applies. A **Version** column and a **Protocol** menu surface `SubjectRoster`'s version checking: the column shows the version each subject is *on* (bold orange when the file has been saved since), a collapsible banner over the table announces how many are behind and offers Update All, and right-click opens that row's protocol in `epsych.ProtocolDesigner`. "Update All in Project" deliberately covers filtered-out members, but RETIRED members are outside the version workflow entirely: they are skipped by every update, left out of the banner, the tooltip, and Check Protocol Versions, and their Version cell is greyed rather than flagged. A finished animal's recorded protocol is the record of what it ran, and no session will follow to make a newer version true. A project's **links** render under the summary as `uihyperlink`s whose `URL` is left EMPTY on purpose — the click routes through `SubjectRoster.openLink` so a stored address is re-checked before anything navigates, and a `file:` folder goes to the file manager rather than a browser. "Show archived projects" is the project-level counterpart of "Show retired", and the selected project is never hidden by it (documentation/gui/gui_SubjectManager.md)
+- **gui.SubjectManager**: the Subjects & Projects window, and the operator's only path to putting subjects in a session — the RunExpt `add_subject` toolbar button and the new Subjects menu (Ctrl+B) both open it. **Add Checked to Session** REPLACES the session's subject list rather than appending to it (`assignToSession`'s `ReplaceExisting`) — what is ticked is the operator's answer to "who is running", and a leftover animal would keep dispatching trials in its box; the displaced names go in the commit report, and the button and its tool say so in a tooltip. Projects are a `uilistbox`, subjects a `uitable` because each row carries its own box before commit; Protocol is read-only in the grid because `uitable`'s `ColumnFormat` is per-column, so a dropdown there could not offer per-row protocols. **Copy...** (also `Project > Copy Project...` and a two-folders tool) starts a study's next phase from one that already works: it asks the subjects question FIRST in a `uiconfirm` — with subjects, or settings only, skipped entirely for a project with no active members — because that is the one thing the edit dialog cannot show, then opens the ordinary dialog titled `Copy Project` on a non-colliding `(copy)` name, so nothing is written until OK. Copied subjects stay in the source too (membership is many-to-many); the roster's `IncludeRetired`/`CopyProtocolMemory` are script-only. The project dialog has two tabs: **Project** (identity, links, archived) and **Session Defaults**, which is where the settings that moved off Customize are set — protocol, data path, saving function, behavior GUI, timer period, video and Intan paths. Nothing there opens blank: each field is seeded from its MRU (`ep_RunExpt_Subjects/Recent<Field>`, written only on OK) and then the machine pref, and OK refuses a blank one; `DefaultProtocol` and `IntanSettingsFile` are the two deliberate exceptions. The behavior GUI dropdown is fed by the behavior GUIs other projects in the roster use, not by the `RecentBehaviorGUI` pref, so it works with no session open. All state lives in `epsych.SubjectRoster`; every callback ends in `refresh`. On a rig with no roster file chosen the window opens *unbound* — header `Roster: (no file chosen)`, an explanation where the table goes, and everything off EXCEPT New Project / New Subject / Import, because clicking one of those three is how `ensureRoster_` asks for the file. That prompt loops with two exits (name a file, or close the window): "carry on without one" is never offered, since it would mean filling in a record with nowhere to save it. Browsing never prompts. A configured path whose FOLDER is gone (share moved, drive unmounted, temp dir cleaned up) is treated the same way and marked `(folder not found)` — otherwise it is indistinguishable from a fresh empty roster, and `saveAtomic_` would re-create that dead folder and save into it. The header shows the FULL path plus a Change... button, redundantly with the toolbar tool and File menu, because an icon-only toolbar is no help to someone whose roster is not where they expected. "New Subject..." routes through `RunExpt.dispatchAddSubjectFcn_` so a lab's custom `FUNCS.AddSubjectFcn` still applies. A **Version** column and a **Protocol** menu surface `SubjectRoster`'s version checking: the column shows the version each subject is *on* (bold orange when the file has been saved since), a collapsible banner over the table announces how many are behind and offers Update All, and right-click opens that row's protocol in `epsych.ProtocolDesigner`. "Update All in Project" deliberately covers filtered-out members, but RETIRED members are outside the version workflow entirely: they are skipped by every update, left out of the banner, the tooltip, and Check Protocol Versions, and their Version cell is greyed rather than flagged. A finished animal's recorded protocol is the record of what it ran, and no session will follow to make a newer version true. A project's **links** render under the summary as `uihyperlink`s whose `URL` is left EMPTY on purpose — the click routes through `SubjectRoster.openLink` so a stored address is re-checked before anything navigates, and a `file:` folder goes to the file manager rather than a browser. "Show archived projects" is the project-level counterpart of "Show retired", and the selected project is never hidden by it The project and membership dialogs (`projectDialog_`, `membershipDialog_`, one shared field grid) end EVERY answer by deleting the window and block in `waitfor(dlg)`, the `gui.selectPhaseParameters` rule, not `uiwait`/`uiresume`: showing a uifigure yields, so a timer or a fast click can answer the dialog before the wait starts, and then `uiresume` had nothing to resume (the answer was lost) or `uiwait` threw on the window closed under it. `tmp/smoke_test_subject_manager.m`'s probe timer does exactly that, and twice the MATLAB running it died of an access violation seconds into the NEXT test. Which is also why a smoke test should not repoint `ep_RunExpt_Subjects/RosterFile` when it can open the roster by path and commit through it: a MATLAB that dies mid-test runs no `onCleanup`, and the rig is left aimed at a temporary roster (`tmp/smoke_test_session_record_settings.m` starts its session from the Preview button for that reason, rather than `epsych.RunExpt("<project>", Run=true)`) (documentation/gui/gui_SubjectManager.md)
 - **gui.components.SyringePump**: operator panel for an `hw.NE1000` pump — dispensed-volume readout (4 Hz), COM port picker with auto-detect, syringe diameter, rate, infuse/withdraw, a TTL-trigger enable, and manual Start/Stop/Zero. Drives a protocol's pump, or one it constructs itself when the session has none, so the panel still opens with no hardware. Every part is individually hideable through `Sections`/`show`/`hide` or the right-click menu, and a hidden control still works (the menu can set it); operator-made changes — layout, port, units, values — persist by `PreferenceTag`, while programmatic ones do not. The value options carry no `arguments`-block defaults, which is what lets a saved configuration fill in for what the caller did not state. Rate and readout **units** are the operator's too, from the right-click Units menu (µL/mL per min/hr, mL/min by default): changing them converts `Rate` rather than reinterpreting it, puts the interface into the same units — so a protocol column that writes `Rate` means them as well — and is refused while the pump runs, because the pump rejects a units-bearing `RAT` mid-dispense and `hw.NE1000`'s bare-value fallback would land in the OLD units (`gui.BehaviorGUI.addSyringePump`; documentation/gui/gui_SyringePump.md)
 - **gui.components.Notes**: the operator's note pad — one entry line (Enter or the button
   beside it commits), above it a log of everything typed, each line stamped with
@@ -1685,6 +1687,122 @@ The epsych.EventHub event broadcaster is the primary communication channel:
 
 Subscribers (e.g., psychophysics.Psych subclasses, gui.components.OnlinePlot) listen to these events and update state.
 
+### The Trial Boundary & Runtime Performance
+
+Everything at runtime shares ONE MATLAB thread, and what MATLAB controls is the
+**trial boundary**: the time from one trial ending to the `NewTrial` pulse of
+the next, which the subject waits through. In `ep_TimerFcn_RunTime` that is
+sweep (`Runtime.trialRecord`) → journal → `selector.onComplete` →
+`notify('NewData')` → optional recompile → `selectNext` →
+`Runtime.dispatchNextTrial` (ResetTrig pulse, parameter writes, NewTrial
+pulse, deferred display work, `notify('NewTrial')`). The 2026-11 review
+(plans/runtime-performance-review.md) and the settings it led to are in
+documentation/overviews/Runtime_Performance.md. What a reader would otherwise
+re-derive:
+
+- **Measure from inside a timer callback.** Code in a timer callback is never
+  interrupted by another timer, not even at a `pause` or `drawnow`; top-level
+  code is interrupted between statements. `tmp/bench_trial_boundary.m` drives
+  the real loop from a singleShot timer for that reason, against
+  `tmp/CountingProbeInterface.m`, which COUNTS device calls so the answer does
+  not depend on the machine. `epsych.TickStats` (preference
+  `EPsych/TickStats`) times the phases of a real session and reports at Stop.
+- **No `pause` or `drawnow` inside the boundary.** It does not let other
+  timers in, but it renders every pending graphics update there (24 ms
+  measured for one table change). Triggers hold their pulse with
+  `hw.Interface.holdPulse`, a busy wait; the benchmark counts yields through
+  `tmp/.yieldspy`, whose folder name is dotted so `epsych_startup`'s
+  `genpath` never puts shadows of `pause`/`drawnow` on a session's path.
+- **The device is fast; MATLAB is what a call costs.** On an RZ6 over GB a raw
+  RPcoX call is 20-40 us while `P.Value` was 362 us, most of it connection
+  probes. `hw.Interface.ioReady` is the hot-path connection check (concrete,
+  default `IsConnected`); `hw.TDT_RPcox` answers it from a 0.25 s cache that
+  `dropLink_` clears on everything that can change the answer, and both TDT
+  backends cache `mode` for 0.1 s. `IsConnected` stays live.
+- **`hw.Parameter.hostValue`** is what `set.Value` last stored, with no device
+  I/O. Use it to ask "did the host change this?" (a control deciding whether
+  to refresh, a trace record), never "what does the device hold?": a float32
+  tag, an integer tag and a pump's four digits all hold something else.
+  `gui.components.Parameter_Control` uses it only to skip the read-back for a
+  write that changed nothing.
+- **`hw.Interface.InDispatch`** is true from the ResetTrig pulse to the end of
+  the NewTrial pulse. Backends leave their per-write success record out while
+  it is set, because `dispatchNextTrial` writes ONE trace record for the
+  trial; with the log taking every level by default there were two records
+  per parameter per trial.
+- **`hw.ReadPlan`** reads a parameter list with one `get_parameter(array)` per
+  interface and returns exactly what `P(k).Value` returns. The trial-end
+  sweep and `gui.components.Parameter_Monitor` use it; write-only, `StimType`
+  and software parameters are served locally, and a backend that refuses an
+  array (a signature error, never a read failure) is demoted for good.
+- **An Expression reads only the siblings its text names** (a plain identifier
+  scan in `hw.Parameter.resolveExpressionContext`). It still reads them from
+  the DEVICE; using the host value would change what the expression sees
+  wherever a value is coerced.
+- **Deferred display work** (`epsych.EventHub.defer`/`deferFor`): a display
+  hands its drawing to the hub, which runs it at once unless a trial boundary
+  is open, and then right after the NewTrial pulse, before the NewTrial
+  event. Opt-in per session (`EventHub.DeferralEnabled`, set by
+  `gui.BehaviorGUI.deferDisplayWork` or preference `EPsych/DeferDisplays`).
+  ANALYSIS IS NEVER DEFERRED: a Psych recomputes inside NewData, where the
+  next trial's selection can depend on it. What changes when it is on is that
+  a NewData listener reading a DISPLAY sees the previous trial's drawing.
+- **`hw.Interface.SkipUnchangedStimulus`** (default on): a `StimType` is
+  regenerated on every dispatch, but the upload is left out when the tag was
+  last sent the same samples in single precision (278 ms per second of
+  stimulus on the RZ6). The backend forgets what it sent on connect, the
+  circuit reload in `resetSession`, a mode write, a refused write and any
+  other write to the tag.
+- **`hw.Interface.SkipUnchangedWrites`** (default OFF, preference
+  `EPsych/SkipUnchangedWrites`): the trial loop's dispatch leaves out a write
+  the device was read back holding since the trial ended. Evidence is
+  recorded by the BACKEND for a value the device itself returned
+  (`hw.Parameter.noteDeviceRead`) under `DeviceEpoch`, which
+  `ep_TimerFcn_RunTime` bumps before its sweep so nothing older can excuse a
+  write; `holdsValue` (concrete, default false) is the backend's judgement of
+  equality and doubles as the capability query. Only
+  `dispatchNextTrial(i, AllowSkip=true)` — the trial loop — may skip, so the
+  first dispatch, a regenerated trial and every operator write are sent. It
+  rests on nothing but the host changing a parameter between the trial-end
+  read and the dispatch, which is why it is opt-in.
+- **What a trial record holds** (`Runtime.RecordBuffers`,
+  `RecordStimulusSettings`, both default to what was always recorded): a
+  visible buffer tag is read whole into every record, and a readable
+  `StimType` records the LIVE handle object — the same one in every trial, so
+  an earlier record shows the stimulus as it is at save time, and 0.9 MB of
+  journal per trial for a 1 s stimulus. The second setting records
+  `stimgen.StimType.toStruct` instead. Both change a saved file, hence the
+  defaults, and are applied at Run because every record of a session needs
+  the same fields. They are the STUDY's settings, not the rig's: two
+  SESSION_FIELDS on the roster membership (the `SESSION_FLAG_FIELDS`), set
+  by two checkboxes on the project's Session Defaults tab, landed on
+  `RunExpt.FUNCS` by `assignToSession` and handed to the runtime in
+  `ExptDispatch`; `Info.RecordBuffers`/`Info.RecordStimulusSettings` record
+  which a file was saved under. Stored tri-state as a double (1, 0, NaN =
+  not stated; `epsych.SubjectRoster.sessionFlag`), and unlike every other
+  session field in two ways: NaN means the BUILT-IN default at every commit
+  (`sessionFlagValue`), never "leave the session as the last batch left
+  it", so one study's choice of what a data file holds cannot ride into the
+  next study's files — `assignToSession` writes both even with no project;
+  and they are compared as what they MEAN, so stating the default and
+  stating nothing agree in the mismatch check and the manager's Settings
+  column (a template that came to state the default would otherwise turn
+  every member stamped before it into a refusal over nothing). The dialog
+  opens them on the stated value or the built-in, deliberately with no
+  MRU. `sessionFlagValue`'s arguments block names the two fields as
+  literals because a validator cannot reference a class constant. Standing
+  proof `tmp/smoke_test_session_record_settings.m`.
+- **The idle watchdog never fired on a multi-interface rig**:
+  `get(heterogeneousArray,'mode')` returns a cell of `[]` and calls no
+  getter. `RunExpt.hardwareIdle` keeps that as the default and makes stopping
+  on idle hardware an explicit choice (`StopOnIdleHardware`). It is NOT
+  rate-limited in RunExpt, because `hw.Bpod`'s `get.mode` is its per-tick
+  byte pump; the TDT backends cache instead.
+- **A display writes a graphics property only when the value changes**, and
+  sets the matching `...Mode` to manual explicitly, since a skipped write no
+  longer flips it (`gui.components.ParameterScatter.setIfChanged_`). And no
+  `vprintf` per trial in a display or an analysis.
+
 ### Program State Machine
 
 NOCONFIG -> CONFIGLOADED -> READY -> RUNNING -> POSTRUN -> STOP
@@ -1867,6 +1985,7 @@ Reference: examples/customgui/, runtime/guis/@ep_GenericGUI/, paradigms/cl_SaveD
 - **Session walkthrough**: documentation/overviews/RunExpt_GUI_Overview.md
 - **Pre-flight self-test**: documentation/overviews/RunExpt_SelfTest.md
 - **Runtime events**: documentation/epsych/Event_Notifications.md
+- **Runtime performance**: documentation/overviews/Runtime_Performance.md
 - **Offline session review**: documentation/epsych/epsych_ReviewSession.md
 - **Logging**: documentation/granary/granary_Logging.md, documentation/helpers/helpers_vprintf.md
 - **Architecture**: documentation/overviews/Architecture_Overview.md

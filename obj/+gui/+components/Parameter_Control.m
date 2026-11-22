@@ -142,6 +142,18 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         committing_ (1,1) logical = false % true while an autoCommit write-back is in flight; suppresses the re-entrant PostUpdateFcn from value_change_external
         PendingBase_ = [] % the bound value a pending edit was made against; see value_change_external
 
+        % The host's side of the same bookkeeping (hw.Parameter.hostValue),
+        % which is what lets a trial-boundary write that changes nothing be
+        % recognised without reading the device. SyncHost_/SyncValue_ are the
+        % parameter's host value and the bound value read back when the
+        % widget was last synchronised; PendingHostBase_ is the host value a
+        % pending edit was made against. See value_change_external.
+        SyncHost_ = []
+        SyncHostKnown_ (1,1) logical = false
+        SyncValue_ = []
+        PendingHostBase_ = []
+        PendingHostKnown_ (1,1) logical = false
+
         % Enable is decided by TWO independent things and the widget shows
         % their AND: the interface mode (a control is dead while the hardware
         % is idle) and the dependency gate set by a governing control. Kept
@@ -597,6 +609,14 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             prevValue = obj.getBoundValue();
             obj.ValueUpdated = ~isequal(value,prevValue);
             obj.PendingBase_ = prevValue;
+            % The same base on the host's side, so a later write that merely
+            % re-asserts it can be recognised without reading the device
+            % (value_change_external).
+            if isequal(obj.BoundProperty,'Value')
+                [obj.PendingHostBase_, obj.PendingHostKnown_] = obj.Parameter.hostValue();
+            else
+                obj.PendingHostKnown_ = false;
+            end
 
             % run post-update function, if specified. This allows for any necessary updates after the value is changed, such as re-enabling randomization when repeating a trial after an Abort, or updating other controls based on the new value.
             obj.runPostUpdateFcn(event);
@@ -679,8 +699,9 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         end
 
 
-        function runPostUpdateFcn(obj, event)
+        function runPostUpdateFcn(obj, event, knownValue)
             % runPostUpdateFcn(obj, event)
+            % runPostUpdateFcn(obj, event, knownValue)
             % Invoke the optional PostUpdateFcn with the standard argument list
             % (control, event, bound Parameter, extra args). Shared by the
             % user-driven path (value_changed) and the external-change path
@@ -691,7 +712,14 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             % PostUpdateFcn: a paradigm's callback is a single slot that the
             % GUI may already be using for something else, so gating must not
             % be built on top of it.
-            obj.refreshDependents_();
+            %
+            % knownValue is the bound value when the caller has just read it,
+            % so the dependents are not refreshed from a second device read.
+            if nargin < 3
+                obj.refreshDependents_();
+            else
+                obj.refreshDependents_(knownValue);
+            end
             if isa(obj.PostUpdateFcn,'function_handle')
                 obj.PostUpdateFcn(obj,event,obj.Parameter,obj.PostUpdateFcnArgs{:});
             end
@@ -988,11 +1016,16 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             end
         end
 
-        function refreshDependents_(obj)
+        function refreshDependents_(obj, v)
+            % refreshDependents_(obj)
+            % refreshDependents_(obj, v)
             % Push this control's value onto everything it governs. Deleted
             % dependents are dropped rather than skipped: a governing control
             % outlives the panel a dependent was torn down with, and the list
             % would otherwise grow stale entries for the whole session.
+            %
+            % Pass v when the caller already holds the bound value; reading
+            % it here is a device round trip on a live backend.
             if isempty(obj.Dependents_), return; end
 
             alive = arrayfun(@(d) isvalid(d.Control), obj.Dependents_);
@@ -1001,7 +1034,9 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             % A governor is a checkbox or toggle in practice, but nothing
             % stops one being pointed at a text parameter, where "true" has
             % no meaning: leave the dependents alone rather than guess.
-            v = obj.getBoundValue();
+            if nargin < 2
+                v = obj.getBoundValue();
+            end
             if isempty(v) || ~(isnumeric(v) || islogical(v)), return; end
             state = logical(v(1));
 
@@ -1012,6 +1047,48 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
         end
 
         function value_change_external(obj,~,~)
+            % A write that did not CHANGE what the host holds costs nothing.
+            %
+            % PostSet fires on every write, and epsych.Runtime.dispatchNextTrial
+            % re-writes every per-trial parameter at every trial boundary --
+            % nearly all of them with the value they already had. Each used to
+            % bring this control here to read the device back, assign the
+            % widget what it was already showing, and read the device again
+            % for its dependents: two or three round trips per control per
+            % trial, inside the dispatch, to learn that nothing had moved.
+            %
+            % hw.Parameter.hostValue answers "did the host change this?"
+            % without touching the device. It is used ONLY for that question.
+            % What the widget shows still comes from the device read-back
+            % below, on every write that does change the value -- that
+            % read-back is the one place an operator sees a coerced or refused
+            % write, and PendingBase_ is a read-back too, so comparing it with
+            % a host value would discard every staged edit on a float32 tag
+            % (0.1 is not 0.100000001490116).
+            if ~obj.committing_ && obj.hostUnchanged_()
+                if obj.ValueUpdated && ~obj.autoCommit
+                    % A staged edit, and the write re-asserts the value it was
+                    % made against: the edit stands, as in the full path
+                    % below, PostUpdateFcn skipped for the same reason.
+                    if obj.PendingHostKnown_ && isequaln(obj.SyncHost_, obj.PendingHostBase_)
+                        return
+                    end
+                    % Otherwise the full path decides.
+                else
+                    if obj.ValueUpdated
+                        % An autoCommit control's leftover flag; see below.
+                        obj.reset_label;
+                    end
+                    % PostUpdateFcn still runs, with the value this control
+                    % last read: a paradigm may be using it as a per-trial
+                    % hook, and it is handed what a fresh read would return.
+                    e = struct('PreviousValue', [], 'EventName', 'PostSet');
+                    e.Value = obj.SyncValue_;
+                    obj.runPostUpdateFcn(e, obj.SyncValue_);
+                    return
+                end
+            end
+
             % Read through getBoundValue rather than the event: a 'range'
             % control listens to Min and Max, and either one firing means the
             % whole pair has to be re-read.
@@ -1064,13 +1141,18 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
             end
 
             if changed || obj.committing_
-                obj.indicate_change;
+                obj.indicate_change(v);
             elseif obj.ValueUpdated
                 % The parameter arrived at the value this control was already
                 % showing, so the pending edit is satisfied -- drop the
                 % uncommitted-edit highlight instead of leaving it stuck on.
                 obj.reset_label;
             end
+
+            % The widget now shows the device's answer to the host's current
+            % value; remember both, so the next write of that same value is
+            % recognised without a read (see the top of this method).
+            obj.noteSync_(v);
 
             % Mirror the user-driven path: a parameter changed from outside this
             % control (loading a phase, a linked-parameter update, etc.) should still
@@ -1083,13 +1165,19 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 % into a struct array by struct().
                 e = struct('PreviousValue', [], 'EventName', 'PostSet');
                 e.Value = v;
-                obj.runPostUpdateFcn(e);
+                obj.runPostUpdateFcn(e, v);
             end
         end
 
 
-        function indicate_change(obj)
-            v = obj.getBoundValue();
+        function indicate_change(obj, v)
+            % indicate_change(obj)
+            % indicate_change(obj, v)
+            % Show that the bound value changed. Pass v when the caller has
+            % just read it: reading it again is a device round trip.
+            if nargin < 2
+                v = obj.getBoundValue();
+            end
 
             switch obj.type
                 case {'editfield','range'}
@@ -1559,6 +1647,31 @@ classdef Parameter_Control < handle & matlab.mixin.SetGet
                 obj.h_uiobj.Value = min(max(v,lims(1)),lims(2));
             end
             obj.h_uiobj.Limits = lims;
+        end
+
+        function tf = hostUnchanged_(obj)
+            % tf = hostUnchanged_(obj)
+            % True when the bound Value's HOST value is what it was when this
+            % control last synchronised its widget -- i.e. the write that
+            % brought us here changed nothing. Never true for a control bound
+            % to anything but Value (those properties are plain, and cheap to
+            % read), or before the first synchronisation.
+            tf = false;
+            if ~obj.SyncHostKnown_ || ~isequal(obj.BoundProperty,'Value')
+                return
+            end
+            [h, known] = obj.Parameter.hostValue();
+            tf = known && isequaln(h, obj.SyncHost_);
+        end
+
+        function noteSync_(obj, v)
+            % noteSync_(obj, v)
+            % Record that the widget shows v, read back for the parameter's
+            % current host value.
+            if isequal(obj.BoundProperty,'Value')
+                [obj.SyncHost_, obj.SyncHostKnown_] = obj.Parameter.hostValue();
+                obj.SyncValue_ = v;
+            end
         end
 
         function tf = displayDiffers_(obj, v)

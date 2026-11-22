@@ -96,7 +96,12 @@ classdef PsychPlot < gui.PopOut
 
             obj.psychObj = pObj;
 
-            obj.hl_NewData = listener(pObj.Events,'NewData',@obj.update_plot);
+            % The redraw is display work: during a session the hub runs it
+            % once the next trial has been dispatched; otherwise at once
+            % (epsych.EventHub.defer). It reads the analysis's Results when
+            % it runs, and the analysis itself is never deferred.
+            obj.hl_NewData = listener(pObj.Events,'NewData', ...
+                @(~,~) epsych.EventHub.deferFor(obj.psychObj, obj, 'PsychPlot.update', @() obj.update_plot()));
             obj.TabListeners_ = gui.onShown(ax, @() obj.catchUp_());
 
             obj.build_context_menu_;
@@ -128,7 +133,7 @@ classdef PsychPlot < gui.PopOut
 
         function update_plot(obj,~,~)
             % Redraw from the analysis's current Results.
-            vprintf(4,'Updating PsychPlot')
+            % (No per-update vprintf: the log takes every level by default.)
             if isempty(obj.ax) || ~isvalid(obj.ax) || isempty(obj.psychObj) || ~isvalid(obj.psychObj)
                 return
             end

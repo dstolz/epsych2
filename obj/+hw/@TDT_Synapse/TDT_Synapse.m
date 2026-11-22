@@ -79,6 +79,13 @@ classdef TDT_Synapse < hw.Interface
     properties (Access = private)
         ModeState_ (1,1) hw.DeviceState = hw.DeviceState.Idle
 
+        % When ModeState_ was last asked of Synapse; empty = ask next time.
+        modeTic_ = []
+
+        % Whether the client exposes sendGet, resolved once per connection
+        % ([] = not yet); see readScalar_.
+        directRead_ = []
+
         % Element counts by 'gizmo.tag', asked of Synapse once per
         % connection. Two reasons: a stimulus write is bounded by the tag
         % that receives it, and the SynapseAPI client's own size cache
@@ -109,6 +116,14 @@ classdef TDT_Synapse < hw.Interface
 
         % Seconds between mode polls.
         MODE_POLL_PERIOD = 0.25
+
+        % Seconds a trigger tag is held high between the write of 1 and the
+        % write of 0 (hw.Interface.holdPulse).
+        PULSE_HOLD = 0.001
+
+        % Seconds a mode query may be answered from the last one
+        % (queryModeState_).
+        MODE_INTERVAL = 0.1
     end
 
 
@@ -385,6 +400,10 @@ classdef TDT_Synapse < hw.Interface
 
         function close_interface(obj)
             obj.ParameterSizes_ = containers.Map('KeyType', 'char', 'ValueType', 'double');
+            obj.forgetStimulusSent_();
+            obj.invalidateDeviceValues();
+            obj.modeTic_ = [];
+            obj.directRead_ = [];
 
             if isempty(obj.HW)
                 obj.IsConnected = false;
@@ -493,11 +512,17 @@ classdef TDT_Synapse < hw.Interface
                     tag, gizmo, char(obj.queryModeState_()));
             end
 
-            pause(0.001)
+            % Not pause(): that would render every pending graphics update
+            % inside the pulse (hw.Interface.holdPulse).
+            hw.Interface.holdPulse(obj.PULSE_HOLD)
 
             ok = obj.HW.setParameterValue(gizmo, tag, 0);
             if ok
-                vprintf(3,'Triggered "%s"',P.Name)
+                % hw.Parameter.Trigger logs the same event; one record per
+                % pulse is enough while a dispatch is in progress.
+                if ~obj.InDispatch
+                    vprintf(3,'Triggered "%s"',P.Name)
+                end
             else
                 % The edge fired; the line is now stuck high, which the next
                 % pulse will not deliver. Report, do not abort the trial.
@@ -505,6 +530,17 @@ classdef TDT_Synapse < hw.Interface
             end
         end
 
+
+        function tf = holdsValue(obj, p, deviceValue, value)
+            % tf = holdsValue(obj, p, deviceValue, value)
+            % A scalar parameter read back as DEVICEVALUE already holds VALUE
+            % when the two agree in single precision, which is what a
+            % processor keeps of a scalar. Triggers and arrays are always
+            % written.
+            %
+            % See also: hw.Interface.SkipUnchangedWrites
+            tf = obj.sameInSingle_(p, deviceValue, value);
+        end
 
         % set new value to one or more hardware parameters
         % returns TRUE if successful, FALSE otherwise
@@ -564,6 +600,17 @@ classdef TDT_Synapse < hw.Interface
                     continue
                 end
 
+                % Any other write to a tag a waveform was uploaded to changes
+                % what the buffer holds, so that upload is no longer known.
+                if ~isempty(obj.StimulusSent_)
+                    obj.forgetStimulusSent_([gizmo '.' tag]);
+                end
+                % And a write made here directly, past hw.Parameter.set.Value,
+                % makes this parameter's last read-back out of date.
+                if obj.SkipUnchangedWrites
+                    p.forgetDeviceValue();
+                end
+
                 v = double(v);
                 if isscalar(v)
                     ok = obj.HW.setParameterValue(gizmo, tag, v);
@@ -578,9 +625,16 @@ classdef TDT_Synapse < hw.Interface
                     % Format the value just written rather than reading
                     % p.ValueStr back: the read-back is a round trip per
                     % parameter per trial, and on a write-only tag it has
-                    % nothing to return.
-                    vprintf(4,'Updated parameter: %s = %s',p.Name,p.formatValue(v))
+                    % nothing to return. During a trial dispatch the
+                    % dispatcher's one summary record carries every value
+                    % (InDispatch).
+                    if ~obj.InDispatch
+                        vprintf(4,'Updated parameter: %s = %s',p.Name,p.formatValue(v))
+                    end
                 else
+                    % A refused write says the device is not in the state
+                    % the host thought; nothing read from it before stands.
+                    obj.invalidateDeviceValues();
                     vprintf(0,1,'Failed to write %s = %s to %s.%s (Synapse mode: %s)', ...
                         p.Name, p.formatValue(v), gizmo, tag, char(obj.queryModeState_()))
                 end
@@ -645,6 +699,12 @@ classdef TDT_Synapse < hw.Interface
                     vprintf(2,'No value from Synapse for %s.%s', gizmo, tag)
                     v = nan;
                 end
+                if obj.SkipUnchangedWrites && isnumeric(v) && isscalar(v) && ~isnan(v)
+                    % What Synapse itself just returned: the evidence a later
+                    % dispatch write may be left out on. Never the NaN that
+                    % stands in for a read it refused.
+                    p.noteDeviceRead(v, obj.DeviceEpoch);
+                end
                 value{i} = v;
             end
 
@@ -671,7 +731,7 @@ classdef TDT_Synapse < hw.Interface
             % through its size cache, which cannot hold a legacy processor's
             % name (see ParameterSizes_).
             if ~(p.isArray || ismember(p.Type, obj.ARRAY_TYPES))
-                v = obj.HW.getParameterValue(gizmo, tag);
+                v = obj.readScalar_(gizmo, tag);
                 return
             end
 
@@ -680,20 +740,56 @@ classdef TDT_Synapse < hw.Interface
                 vprintf(0,1,'Size of %s.%s unknown; its value cannot be read', gizmo, tag)
                 v = nan;
             elseif n <= 1
-                v = obj.HW.getParameterValue(gizmo, tag);
+                v = obj.readScalar_(gizmo, tag);
             else
                 v = obj.HW.getParameterValues(gizmo, tag, n);
             end
         end
 
+        function v = readScalar_(obj, gizmo, tag)
+            % v = readScalar_(obj, gizmo, tag)
+            % One scalar from Synapse in ONE request.
+            %
+            % SynapseAPI.getParameterValue follows every read that returns 0
+            % with a second request, for the mode (its checkMode), only to
+            % print a warning when Synapse is idle. Zero is the ordinary
+            % value of most of what the trial loop polls -- TrialComplete is
+            % 0 on every tick but the one a trial ends on -- so the session
+            % paid two HTTP round trips for nearly every read. The client's
+            % own sendGet is the same request without the follow-up, and
+            % returns exactly what getParameterValue would have. The mode it
+            % was asking about is already watched, once per tick, by the
+            % session.
+            %
+            % A client without sendGet (the test double) is asked the old
+            % way; which it is gets resolved once per connection.
+            if isempty(obj.directRead_)
+                obj.directRead_ = ismethod(obj.HW, 'sendGet');
+            end
+            if obj.directRead_
+                v = obj.HW.sendGet(sprintf('/params/%s.%s', gizmo, tag), 'value');
+            else
+                v = obj.HW.getParameterValue(gizmo, tag);
+            end
+        end
+
         function applyModeState_(obj, mode)
             obj.ModeState_ = mode;
+            obj.modeTic_ = [];
+            % A mode change may unload the circuit (Idle does), and a
+            % reloaded buffer is empty: the next stimulus write is real.
+            obj.forgetStimulusSent_();
+            obj.invalidateDeviceValues();
             if ~obj.IsConnected || isempty(obj.HW)
                 return
             end
 
             target = obj.synapseMode_(mode);
             actual = obj.awaitMode_(target);
+            % What Synapse actually reached, not what was asked for, and
+            % fresh as of now (queryModeState_).
+            obj.ModeState_ = actual;
+            obj.modeTic_ = tic;
             if actual ~= target
                 error('hw:TDT_Synapse:ModeRejected', ...
                     'Synapse did not enter %s within %g s; it is in %s.%s', ...
@@ -745,8 +841,19 @@ classdef TDT_Synapse < hw.Interface
                 return
             end
 
+            % The session reads mode on every 10 ms tick, and here that is
+            % an HTTP request. Answer from the last one for MODE_INTERVAL;
+            % a mode write, a connect and a disconnect all drop it, so the
+            % cache is never older than that and never survives a change
+            % this object made.
+            if ~isempty(obj.modeTic_) && toc(obj.modeTic_) < obj.MODE_INTERVAL
+                mode = obj.ModeState_;
+                return
+            end
+
             mode = hw.DeviceState(obj.HW.getMode());
             obj.ModeState_ = mode;
+            obj.modeTic_ = tic;
         end
 
         function target = synapseMode_(~, mode)
@@ -807,11 +914,31 @@ classdef TDT_Synapse < hw.Interface
                 return
             end
 
+            % The stimulus was regenerated above, as on every write; the
+            % TRANSFER is left out when this tag was last uploaded the same
+            % samples (hw.Interface.SkipUnchangedStimulus). Compared in
+            % single precision, which is what the processor's buffer holds.
+            key = [gizmo '.' tag];
+            samples = single(reshape(payload.Signal, 1, []));
+            if obj.stimulusOnDevice_(key, samples)
+                ok = true;
+                if ~obj.InDispatch
+                    vprintf(4,'Parameter %s = %s is already on the device (%d samples); not uploaded again', ...
+                        p.Name, payload.DisplayName, payload.N)
+                end
+                return
+            end
+
             ok = obj.HW.setParameterValues(gizmo, tag, reshape(payload.Signal, 1, []));
             if ok
-                vprintf(4,'Updated parameter: %s = %s (%d samples @ %g Hz)', ...
-                    p.Name, payload.DisplayName, payload.N, payload.Fs)
+                obj.noteStimulusSent_(key, samples);
+                if ~obj.InDispatch
+                    vprintf(4,'Updated parameter: %s = %s (%d samples @ %g Hz)', ...
+                        p.Name, payload.DisplayName, payload.N, payload.Fs)
+                end
             else
+                % What the buffer holds after a refused transfer is unknown.
+                obj.forgetStimulusSent_(key);
                 vprintf(0,1,'Failed to write stimulus "%s" (%d samples) to "%s.%s"', ...
                     payload.DisplayName, payload.N, gizmo, tag)
             end

@@ -586,7 +586,24 @@ classdef BufferPlot < gui.PopOut
                 % Event without box information; accept it.
             end
             obj.DATA_ = event.Data.DATA;
-            obj.update;
+            if obj.Suspend_ || obj.Paused, return; end
+
+            % The capture stays HERE, before the next trial is dispatched: a
+            % buffer the record does not carry is read off the device, and
+            % after the dispatch that tag holds the NEXT trial's stimulus.
+            % Only the drawing is handed to the hub, which runs it once the
+            % next trial has started (epsych.EventHub.defer), or at once
+            % outside a session.
+            obj.captureTrial_;
+            epsych.EventHub.deferFor(obj.Runtime_, obj, 'BufferPlot.redraw', ...
+                @() obj.redrawUnlessPaused_());
+        end
+
+        function redrawUnlessPaused_(obj)
+            % The deferred half of onNewData. Paused and Suspend_ are asked
+            % again because the operator may have paused in between.
+            if obj.Suspend_ || obj.Paused, return; end
+            obj.redraw_;
         end
 
         function D = currentData_(obj)

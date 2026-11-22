@@ -209,6 +209,55 @@ end
 | `NewTrial` | `RUNTIME.EVENTS` | `epsych.TrialsData` | upcoming-trial UI and scheduling state |
 | `ModeChange` | `RUNTIME.EVENTS` | `epsych.eventModeChange` | runtime state transitions |
 
+## Deferring display work
+
+`NewData` is delivered between a trial ending and the next one being
+dispatched, and every listener runs to completion before the dispatcher can
+start. A history table and a few plots redrawn there is tens of milliseconds
+the subject waits through on every trial. A display does not have to do that
+work there: it hands it to the hub.
+
+```matlab
+% in a display's NewData listener
+epsych.EventHub.deferFor(source, obj, 'MyPlot.update', @() obj.update());
+```
+
+`source` is whatever the display holds: the hub itself, an `epsych.Runtime`,
+or a `psychophysics.Psych` that follows one. `obj` is the handle the work
+belongs to and the text names it; a second request under the same owner and
+name before the work runs replaces the first.
+
+The hub runs the work **at once** unless a trial boundary is open. A boundary
+opens only when both of these hold:
+
+- `ep_TimerFcn_RunTime` is processing a completed trial (it calls
+  `beginDeferral` before it notifies `NewData`), and
+- the session asked for deferral: `EVENTS.DeferralEnabled`, set by a behavior
+  GUI whose `deferDisplayWork` returns true or by the rig preference
+  `EPsych/DeferDisplays`.
+
+Then the work is queued, and `epsych.Runtime.dispatchNextTrial` runs it
+(`flushDeferred`) as soon as the `NewTrial` pulse has gone out — in the same
+timer tick, in the order it was asked for, **before** the `NewTrial` event. So
+a listener still sees a trial's displays drawn before the next trial is
+announced. An offline analysis, a component on its own, an
+`epsych.ReviewSession` and a hub nobody opted in all run the work immediately,
+as if `deferFor` were a plain call.
+
+| | |
+| --- | --- |
+| Deferred | drawing: `gui.components.History`, `ParameterScatter`, `PsychPlot`, `SlidingWindowPerformancePlot`, `SessionPerformance`, `BufferPlot`, and the `Staircase` and `NAFC` plots |
+| Never deferred | analysis (every `psychophysics.Psych` recomputes inside `NewData`), a behavior GUI's `onNewData`, `gui.AdaptiveTraining`'s step, a trial selector's `onComplete` |
+
+What changes when it is on: code in a `NewData` listener that *reads a
+display* — a table's `Data`, a line's `YData` — sees the previous trial's
+drawing. Read the analysis object instead.
+
+Work that throws is logged and does not stop the rest; work whose owner was
+deleted before its turn is dropped; and a dispatch that fails still runs what
+was queued. Standing proof: `tmp/smoke_test_eventhub_deferral.m`. See also
+[Runtime_Performance.md](../overviews/Runtime_Performance.md).
+
 ## Notes
 
 - `epsych.EventHub` is the only class in the current codebase that declares public custom EPsych events.

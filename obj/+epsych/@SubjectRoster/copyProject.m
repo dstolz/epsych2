@@ -37,7 +37,8 @@ function newId = copyProject(self, id, newName, options)
 %   Notes, Investigator, IACUCProtocol, DefaultProtocol, DefaultDataPath,
 %   SavingFcn, TimerStartFcn, TimerRunTimeFcn, TimerStopFcn, TimerErrorFcn,
 %   TimerPeriod, VideoRootDir, IntanRootDir, IntanSettingsFile,
-%   BehaviorGUI, Links, Archived, RegistryID
+%   BehaviorGUI, RecordBuffers, RecordStimulusSettings, Links, Archived,
+%   RegistryID
 %                      - override the source's value for that field. Each has
 %                        no default, so "not stated" and "stated as empty" stay
 %                        distinguishable and only the former follows the source.
@@ -96,6 +97,8 @@ arguments
     options.IntanRootDir (1,:) char
     options.IntanSettingsFile (1,:) char
     options.BehaviorGUI (1,:) char
+    options.RecordBuffers
+    options.RecordStimulusSettings
     options.Links
     options.Archived (1,1) logical
     options.RegistryID (1,:) char
@@ -115,7 +118,8 @@ for f = ["Notes" "Investigator" "IACUCProtocol" "DefaultProtocol" ...
          "DefaultDataPath" "SavingFcn" ...
          "TimerStartFcn" "TimerRunTimeFcn" "TimerStopFcn" "TimerErrorFcn" ...
          "TimerPeriod" "VideoRootDir" ...
-         "IntanRootDir" "IntanSettingsFile" "BehaviorGUI" "Links" "RegistryID"]
+         "IntanRootDir" "IntanSettingsFile" "BehaviorGUI" "Links" "RegistryID" ...
+         "RecordBuffers" "RecordStimulusSettings"]
     if isfield(options, f)
         A.(f) = options.(f);
     else

@@ -288,6 +288,16 @@ classdef (Abstract) BehaviorGUI < handle
                     newDataSrc = obj.Psych.Events;
                 end
                 obj.hl_NewData = listener(newDataSrc, 'NewData', @obj.dispatchNewData_);
+
+                % A GUI that says its displays may draw after the next trial
+                % has started asks the session's hub to hold their drawing
+                % until then (epsych.EventHub.defer). Never in a review,
+                % which notifies NewData with no dispatch to follow; the hub
+                % would run the work at once there anyway, and this keeps a
+                % review from switching it on for nothing.
+                if isa(H, 'epsych.EventHub') && ~obj.ReviewMode && obj.deferDisplayWork()
+                    H.DeferralEnabled = true;
+                end
             end
 
             % Last, so a reopened window finds the GUI wired to the runtime
@@ -965,6 +975,34 @@ classdef (Abstract) BehaviorGUI < handle
 
         function onFirstTrial(obj, src, event)
             % Runs once, at the first NewTrial, after deferred closures.
+        end
+
+        function tf = deferDisplayWork(obj)
+            % tf = deferDisplayWork(obj)
+            % Override to return true when this GUI's displays may draw
+            % AFTER the next trial has been dispatched instead of before it.
+            %
+            % A trial's data reaches every display between that trial ending
+            % and the next one starting, and a history table plus a few plots
+            % redrawn there is tens of milliseconds the subject waits
+            % through, every trial. With this on, the stock displays
+            % (History, ParameterScatter, the Staircase, NAFC, psychometric
+            % and sliding-window plots, BufferPlot, SessionPerformance) hand
+            % their drawing to the session's epsych.EventHub, which runs it
+            % as soon as the NewTrial pulse has gone out -- in the same timer
+            % tick, in the same order, before the NewTrial event.
+            %
+            % Nothing the next trial depends on moves: every analysis object
+            % still recomputes inside NewData, onNewData still runs there,
+            % and so does gui.AdaptiveTraining's step.
+            %
+            % Off by default because of the one thing that does change: code
+            % in onNewData (or any other NewData listener) that READS a
+            % display -- a table's Data, a line's YData -- now sees the
+            % previous trial's drawing. Read the analysis object instead, or
+            % leave this off. The rig preference EPsych/DeferDisplays turns
+            % it on for every session regardless of the GUI.
+            tf = false;
         end
     end
 

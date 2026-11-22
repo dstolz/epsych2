@@ -22,6 +22,7 @@ function updateMembership(self, subjectId, projectId, M)
 %   epsych:SubjectRoster:NoSuchProject
 %   epsych:SubjectRoster:NoSuchMembership
 %   epsych:SubjectRoster:InvalidTimerPeriod
+%   epsych:SubjectRoster:InvalidSessionFlag
 %
 % See also: epsych.SubjectRoster.reapplyTemplate, epsych.SubjectRoster.updateProject,
 %   epsych.SubjectRoster.assign
@@ -52,6 +53,18 @@ if isfield(M, 'TimerPeriod')
     end
 end
 
+% The yes/no session settings (SESSION_FLAG_FIELDS), refused on the same
+% terms: before the file is touched.
+newFlags = struct();
+for ff = epsych.SubjectRoster.SESSION_FLAG_FIELDS
+    if ~isfield(M, ff{1}), continue, end
+    [newFlags.(ff{1}), okFlag] = epsych.SubjectRoster.sessionFlag(M.(ff{1}));
+    if ~okFlag
+        error('epsych:SubjectRoster:InvalidSessionFlag', ...
+            '%s must be true, false, or NaN to leave it at the built-in default.', ff{1});
+    end
+end
+
 sid = s.SubjectID;
 pid = p.ProjectID;
 
@@ -67,7 +80,10 @@ vprintf(2, 'Updated session settings for "%s" in project "%s".', s.Name, p.Name)
         end
 
         for f = epsych.SubjectRoster.SESSION_FIELDS
-            if strcmp(f{1}, 'TimerPeriod') || ~isfield(M, f{1})
+            % The text fields only: the period and the yes/no settings
+            % were validated above and are assigned below.
+            if strcmp(f{1}, 'TimerPeriod') || ~isfield(M, f{1}) ...
+                    || any(strcmp(f{1}, epsych.SubjectRoster.SESSION_FLAG_FIELDS))
                 continue
             end
             cur.(f{1}) = char(string(M.(f{1})));
@@ -75,6 +91,10 @@ vprintf(2, 'Updated session settings for "%s" in project "%s".', s.Name, p.Name)
 
         if isfield(M, 'TimerPeriod')
             cur.TimerPeriod = newPeriod;
+        end
+
+        for ff = fieldnames(newFlags)'
+            cur.(ff{1}) = newFlags.(ff{1});
         end
 
         cur.Modified = datetime('now');

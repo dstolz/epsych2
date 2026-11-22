@@ -60,9 +60,9 @@ into a backend method that does almost nothing:
 
 | | `hw.Software` (the twin) | `hw.TDT_RPcox`, for comparison |
 |---|---|---|
-| `set_parameter` | resolves a name (by-name path only), returns 1. Writes nothing and logs nothing | `IsConnected` probe (a `GetStatus` COM call per module), name lookup (by-name path), `TDTRP.write` (tag-size check, the RPcoX call), a level-4 `vprintf` record, which the log file takes by default |
-| `get_parameter` | returns `NaN`. Does not resolve a name, and moves no data | `IsConnected` probe, name lookup (by-name path), whole-tag `ReadTagVEX` |
-| `trigger` | returns `now` | `IsConnected` probe, two writes and a 1 ms `pause` |
+| `set_parameter` | resolves a name (by-name path only), returns 1. Writes nothing and logs nothing | `ioReady` (the `GetStatus` probe per module, taken at most once per 0.25 s), name lookup (by-name path), `TDTRP.write` (tag-size check, the RPcoX call), a level-4 `vprintf` record, which the log file takes by default (left out inside a trial dispatch, where the dispatcher writes one record for the whole trial) |
+| `get_parameter` | returns `NaN`. Does not resolve a name, and moves no data | `ioReady`, name lookup (by-name path), whole-tag `ReadTagVEX` |
+| `trigger` | returns `now` | `ioReady`, two writes and a 1 ms hold (`hw.Interface.holdPulse`, a busy wait: a `pause` there would render every pending graphics update inside the pulse) |
 
 So `AboveFloor_s` is the transport **plus** the connection probe, the log
 record and the value formatting the real backend does and the twin does not.
@@ -330,7 +330,7 @@ to the experiment circuit:
 |---|---|---|
 | `WScalar` | a parameter tag on a writable constant (e.g. a `ConstF` value) | Float, Access `Any` |
 | `RScalar` | a tag on a value that changes, e.g. a counter's output | read as a scalar |
-| `!BenchTrig` | a tag on a logic input the circuit can pulse (`trigger` writes 1, waits 1 ms, writes 0, so the 1 ms `pause` is part of the trigger time) | `isTrigger = true` (the `!` prefix) |
+| `!BenchTrig` | a tag on a logic input the circuit can pulse (`trigger` writes 1, holds 1 ms, writes 0, so the 1 ms hold is part of the trigger time) | `isTrigger = true` (the `!` prefix) |
 | `Buf` | one data buffer (e.g. a serial buffer component) at least as long as the largest size you will test, tagged on its data, **that the circuit itself never writes into** (below) | `Type = 'Buffer'` (tag type 68) |
 
 **The buffer must be host-only.** The benchmark writes `Buf` from MATLAB and
@@ -451,8 +451,9 @@ matrix runs. There are no buffers.
   everything by default. That cost is inside every write time. See *Running it*.
 - **The runtime's wrappers are not included.** A session writes through
   `hw.Parameter.set.Value`, which adds randomization, `Expression`, clamping and
-  the update callbacks. It reads through `get.Value`, which adds one
-  `IsConnected` probe (a `GetStatus` COM call per module on `hw.TDT_RPcox`) and a
+  the update callbacks. It reads through `get.Value`, which asks the backend's
+  `ioReady` (on `hw.TDT_RPcox` a `GetStatus` COM call per module, at most once
+  per 0.25 s; it used to be two probes per read) and a
   `double` conversion. Those costs are EPsych's and are small next to a buffer
   transfer. They are not in these numbers.
 - **4 bytes (32 bits) per sample** is assumed for `MBPerSec` and `MbitPerSec`,

@@ -38,6 +38,13 @@ for i = 1:RUNTIME.NSubjects
     end
 
 
+    % Trial-loop timing, when the session asked for it (epsych.TickStats).
+    % Everything from here to the end of the NewTrial pulse is time the
+    % subject waits through.
+    ts = RUNTIME.TickStats;
+    timed = ~isempty(ts);
+    if timed, ts.boundaryBegin(); end
+
     % Reset FORCE_TRIAL flag for next trial
     RUNTIME.TRIALS(i).FORCE_TRIAL = false;
 
@@ -45,10 +52,26 @@ for i = 1:RUNTIME.NSubjects
     % There was a response and the trial is over.
     % Retrieve parameter data for this trial and save in TRIALS structure.
 
+    % An interface that may leave out an unchanged write in the dispatch
+    % below (hw.Interface.SkipUnchangedWrites, off by default) does so on the
+    % strength of what the device is read back holding. Retiring every
+    % earlier read-back first means only what THIS read finds can excuse a
+    % write: a monitor's poll from seconds ago cannot.
+    ifaces = RUNTIME.Interfaces;
+    for k = 1:numel(ifaces)
+        if ifaces(k).SkipUnchangedWrites
+            ifaces(k).invalidateDeviceValues();
+        end
+    end
+
     % Get Read parameters scoped to this subject's box.
     % Box-specific parameters carry a "~BoxID" suffix; global parameters
     % (software interface, no suffix) are included for every subject.
-    data = RUNTIME.all_parameters(Access = 'Read',asStruct=true,valueOnly=true);
+    % trialRecord is all_parameters(Access='Read',asStruct=true,
+    % valueOnly=true) unless the session asked for buffers to be left out
+    % or stimuli recorded as settings (epsych.Runtime.RecordBuffers,
+    % RecordStimulusSettings).
+    data = RUNTIME.trialRecord();
 
     data.TrialIndex = RUNTIME.TRIALS(i).TrialIndex;
     data.TrialID     = RUNTIME.TRIALS(i).NextTrialID;
@@ -59,6 +82,7 @@ for i = 1:RUNTIME.NSubjects
 
     % Store data in runtime struct for this trial
     RUNTIME.TRIALS(i).DATA(trialIdx) = data;
+    if timed, ts.mark("sweep"); end
 
     % Append only the new trial entry to the on-disk journal. Synchronous and
     % append-only: the record is durable when append() returns, at a flat cost
@@ -76,12 +100,26 @@ for i = 1:RUNTIME.NSubjects
         save(RUNTIME.DataFile(i), '-struct', 'S_', '-append', '-v6');
     end
 
+    if timed, ts.mark("journal"); end
+
     % Notify selector that this trial completed
     RUNTIME.TRIALS(i).selector.onComplete(RUNTIME.TRIALS(i).NextTrialID, data);
+    if timed, ts.mark("onComplete"); end
+
+    % From here until the NewTrial pulse has gone out, a display may hand its
+    % drawing to the hub instead of doing it while the subject waits
+    % (epsych.EventHub.defer); dispatchNextTrial runs what was handed over
+    % as soon as the trial has started. Analysis is not deferred -- what the
+    % next trial may depend on still runs inside NewData. A no-op unless the
+    % session asked for it. The guard closes the boundary on every way out
+    % of this iteration, so a failed dispatch cannot leave work queued.
+    RUNTIME.EVENTS.beginDeferral();
+    deferralGuard = onCleanup(@() localFlushDeferred(RUNTIME));
 
     % Broadcast event data has been updated
     evtdata = epsych.TrialsData(RUNTIME.TRIALS(i));
     RUNTIME.EVENTS.notify('NewData',evtdata);
+    if timed, ts.mark("newData"); end
 
     vprintf(3,'Trial #%d: Trial Over for box %d',RUNTIME.TRIALS(i).TrialIndex,i)
 
@@ -118,18 +156,21 @@ for i = 1:RUNTIME.NSubjects
             vprintf(0,1,me);
             vprintf(0,1,'Recompile failed for subject %d — preserving last valid runtime state.',i)
         end
+        if timed, ts.mark("recompile"); end
     end
 
     % Select next trial using selector object
     try
-        vprintf(3,'Selecting next trial for box %d using %s',i,class(RUNTIME.TRIALS(i).selector))
+        % One record after the fact rather than one before and one after:
+        % every record written here is time the subject waits through.
         tcf = tic;
         RUNTIME.TRIALS(i).NextTrialID = RUNTIME.TRIALS(i).selector.selectNext(RUNTIME.TRIALS(i));
         dt = toc(tcf);
         if dt > 0.25
             vprintf(2,1,'Warning: Trial selector "%s" is taking %.4f seconds to select the next trial for subject %d. Consider optimizing the trial selection function or pre-compiling trial sequences if possible.', class(RUNTIME.TRIALS(i).selector), dt, i)
         else
-            vprintf(4,'%s ran in %.4f seconds',class(RUNTIME.TRIALS(i).selector),dt)
+            vprintf(3,'%s selected trial %d for box %d in %.4f seconds', ...
+                class(RUNTIME.TRIALS(i).selector), RUNTIME.TRIALS(i).NextTrialID, i, dt)
         end
 
     catch me
@@ -140,9 +181,30 @@ for i = 1:RUNTIME.NSubjects
     
 
     
-    % --- End of trial processing, now next trial is selected and ready to dispatch on the next timer tick ---
-    RUNTIME.dispatchNextTrial(i);
+    if timed, ts.mark("select"); end
 
+    % --- End of trial processing, now next trial is selected and ready to dispatch on the next timer tick ---
+    % AllowSkip: this dispatch follows the trial-end read above, which is
+    % what an interface with SkipUnchangedWrites on needs to have seen.
+    RUNTIME.dispatchNextTrial(i, AllowSkip = true);
+    clear deferralGuard
+    if timed, ts.boundaryEnd(); end
+
+end
+
+end
+
+
+function localFlushDeferred(RUNTIME)
+% Close the deferral boundary. dispatchNextTrial normally has already, and
+% then this finds nothing to do.
+try
+    if isvalid(RUNTIME) && ~isempty(RUNTIME.EVENTS) && isvalid(RUNTIME.EVENTS)
+        RUNTIME.EVENTS.flushDeferred();
+    end
+catch ME
+    vprintf(0, 1, ME);
+end
 end
 
 

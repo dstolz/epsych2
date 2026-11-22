@@ -126,6 +126,34 @@ classdef Parameter < matlab.mixin.SetGet
         BoundsInclusive (1,2) logical = [true true] % whether Min [1] and Max [2] bounds are inclusive
     end
 
+    properties (Transient, Hidden, SetAccess = private)
+        % Host-side copy of what set.Value last stored. get.Value is the only
+        % code that can read the stored Value itself: from anywhere else,
+        % obj.Value IS the device round trip on a connected backend. Code
+        % that needs "what the host last gave this parameter" -- a trace
+        % record, a control deciding whether anything changed -- reads this
+        % through hostValue() and costs the device nothing.
+        HostValue_ = []
+        HostValueKnown_ (1,1) logical = false
+
+        % What the DEVICE last returned for this parameter, and the
+        % interface's DeviceEpoch at that moment. Recorded only by a backend
+        % that implements hw.Interface.holdsValue, and only while its
+        % SkipUnchangedWrites is on (noteDeviceRead); set.Value consults it
+        % to leave out a dispatch write the device already holds. Any write
+        % of this parameter clears it.
+        DeviceValue_ = []
+        DeviceValueKnown_ (1,1) logical = false
+        DeviceEpoch_ (1,1) double = -1
+
+        % What kind of Parent this is, resolved once: get.Value used to ask
+        % isa() and isprop() of it on every read. Parent is immutable, so
+        % the answer cannot change. -1 = not resolved yet (also what an
+        % object loaded from a MAT file starts with, since the constructor
+        % does not run for it); see parentKind_.
+        ParentKind_ (1,1) double = -1
+    end
+
     properties (Dependent)
         ValueStr % string representation of Value based on Format
         validName % valid MATLAB variable name based on Name
@@ -262,8 +290,13 @@ classdef Parameter < matlab.mixin.SetGet
             % samples in a buffer, at best — so a hardware read would return
             % that derived data, not the stimulus. The object is host-side
             % state; this parameter is where it lives.
-            if isequal(obj.Type,'StimType') || isa(obj.Parent,'hw.Software') ...
-                    || (isprop(obj.Parent, 'IsConnected') && ~obj.Parent.IsConnected)
+            %
+            % So does a parameter of hw.Software, and of any backend that is
+            % not connected. The connection question goes to the backend's
+            % ioReady, which may answer from a short-lived cache: asked of
+            % IsConnected here and again inside get_parameter, it was two
+            % device round trips on hw.TDT_RPcox before the read itself.
+            if isequal(obj.Type,'StimType') || ~obj.readsDevice_()
                 v = obj.Value;
             else
                 try
@@ -379,14 +412,27 @@ classdef Parameter < matlab.mixin.SetGet
             value = obj.clamp_value_(value);
 
             obj.Value = value;
+            obj.HostValue_ = value;
+            obj.HostValueKnown_ = true;
             obj.isArray = numel(value) > 1;
 
             % 'StimType' is written like any other type: the backend receives the
             % stimulus object and decides what to do with it (see
             % hw.Interface.stimulusPayload). Backends with no waveform sink log
             % and keep the value host-side.
+            %
+            % The one write that is not sent: inside the trial loop's own
+            % dispatch, a value the device was read back holding since the
+            % trial ended (hw.Interface.SkipUnchangedWrites, off by default).
+            % DeviceValueKnown_ is false unless a backend with that setting
+            % on recorded a read, so this costs one test otherwise.
             if obj.isArray, value = {value}; end
-            obj.Parent.set_parameter(obj,value);
+            if obj.DeviceValueKnown_ && obj.deviceAlreadyHolds_(value)
+                obj.Parent.countSkippedWrite();
+            else
+                obj.DeviceValueKnown_ = false;
+                obj.Parent.set_parameter(obj,value);
+            end
 
             % `now` is much faster than `datetime("now")`
             % use: dt = datetime(obj.lastUpdated, 'ConvertFrom','datenum', 'TimeZone','local');
@@ -396,6 +442,49 @@ classdef Parameter < matlab.mixin.SetGet
             obj.execute_PostUpdateFcn(value);
         end
 
+        function [v, known] = hostValue(obj)
+            % [v, known] = hostValue(obj)
+            % The value set.Value last stored, with no device I/O.
+            %
+            % obj.Value on a connected backend reads the DEVICE. This reads
+            % the host's own copy: what the parameter was last given, after
+            % randomization, its Expression, the evaluator and clamping. It
+            % is not a substitute for a read-back -- a device that coerces a
+            % value (a float32 tag, an integer tag, a pump's four digits) or
+            % refuses a write holds something else -- so use it to answer
+            % "did the host change this?", not "what does the device hold?".
+            %
+            % Returns:
+            %   v     - the stored value; [] when nothing has been set
+            %   known - false until set.Value has run once on this parameter
+            v = obj.HostValue_;
+            known = obj.HostValueKnown_;
+        end
+    end
+
+    methods (Hidden)
+        function noteDeviceRead(obj, v, epoch)
+            % noteDeviceRead(obj, v, epoch)
+            % A backend's record that the DEVICE just returned V for this
+            % parameter, under the interface's DeviceEpoch EPOCH. Called from
+            % a backend's get_parameter, for a value the device itself gave
+            % -- never for a fallback served from the host -- and only while
+            % its SkipUnchangedWrites is on. See hw.Interface.holdsValue.
+            obj.DeviceValue_ = v;
+            obj.DeviceEpoch_ = epoch;
+            obj.DeviceValueKnown_ = true;
+        end
+
+        function forgetDeviceValue(obj)
+            % forgetDeviceValue(obj)
+            % The device may no longer hold what was read: a backend calls
+            % this for a parameter written through set_parameter directly,
+            % which set.Value does not see.
+            obj.DeviceValueKnown_ = false;
+        end
+    end
+
+    methods
         function vstr = get.ValueStr(obj)
             % A write-only parameter has nothing to read back: get.Value logs
             % a critical record and returns NaN. ValueStr is display text
@@ -563,6 +652,54 @@ classdef Parameter < matlab.mixin.SetGet
     end
 
     methods (Access = private)
+        function tf = deviceAlreadyHolds_(obj, value)
+            % tf = deviceAlreadyHolds_(obj, value)
+            % True when writing VALUE now would tell the device what it was
+            % just read back holding: the dispatcher allows a skip on this
+            % interface, the read-back was taken under the interface's
+            % current DeviceEpoch, and the backend says the two agree.
+            par = obj.Parent;
+            tf = par.DispatchMaySkip ...
+                && obj.DeviceEpoch_ == par.DeviceEpoch ...
+                && par.holdsValue(obj, obj.DeviceValue_, value);
+        end
+
+        function tf = readsDevice_(obj)
+            % tf = readsDevice_(obj)
+            % True when a read of Value should go to the backend rather than
+            % be served from the stored value: the parent is not software
+            % and reports itself ready for I/O.
+            k = obj.ParentKind_;
+            if k < 0
+                k = obj.resolveParentKind_();
+            end
+            switch k
+                case 1      % an hw.Interface: its hot-path connection check
+                    tf = obj.Parent.ioReady();
+                case 2      % some other object that reports IsConnected
+                    tf = obj.Parent.IsConnected;
+                case 3      % no way to ask; treat as connected, as before
+                    tf = true;
+                otherwise   % 0: hw.Software keeps its values host-side
+                    tf = false;
+            end
+        end
+
+        function k = resolveParentKind_(obj)
+            % 0 software, 1 hw.Interface, 2 other with IsConnected, 3 other
+            P = obj.Parent;
+            if isa(P, 'hw.Software')
+                k = 0;
+            elseif isa(P, 'hw.Interface')
+                k = 1;
+            elseif isprop(P, 'IsConnected')
+                k = 2;
+            else
+                k = 3;
+            end
+            obj.ParentKind_ = k;
+        end
+
         function validateStimTypeValue_(obj, value)
             % Enforce that a 'StimType' parameter only ever holds a stimulus object.
             if isequal(obj.Type, 'StimType') && ~(isempty(value) || isa(value,'stimgen.StimType'))

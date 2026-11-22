@@ -104,7 +104,11 @@ classdef SlidingWindowPerformancePlot < handle
             xlabel(obj.hAxes, 'Trials');
             obj.buildContextMenu_();
 
-            obj.hl_NewData = listener(pObj.Events, 'NewData', @obj.update);
+            % The recompute-and-redraw is display work: during a session the
+            % hub runs it once the next trial has been dispatched; otherwise
+            % at once (epsych.EventHub.defer).
+            obj.hl_NewData = listener(pObj.Events, 'NewData', ...
+                @(~,~) epsych.EventHub.deferFor(obj.psychObj, obj, 'SlidingWindow.update', @() obj.update()));
             obj.TabListeners_ = gui.onShown(ax, @() obj.catchUp_());
             obj.built_ = true;
             obj.update();

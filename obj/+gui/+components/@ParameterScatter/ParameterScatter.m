@@ -269,7 +269,8 @@ classdef ParameterScatter < gui.PopOut
             % update(obj, ~, ~)
             % Refresh the selectable parameter lists and redraw the scatter.
             if isempty(obj.AxesH) || ~isvalid(obj.AxesH), return; end
-            vprintf(4,'Updating ParameterScatter')
+            % No per-update vprintf: the log takes every level by default, so
+            % a trace record here was a dbstack and a file write per trial.
 
             D = obj.currentData_;
             avail = obj.availableParameters_(D);
@@ -313,7 +314,12 @@ classdef ParameterScatter < gui.PopOut
                 % Event without box information; accept it.
             end
             obj.DATA_ = event.Data.DATA;
-            obj.update;
+
+            % Taking the data is all that has to happen now. The redraw is
+            % display work: during a session the hub runs it once the next
+            % trial has been dispatched (epsych.EventHub.defer); with no
+            % runtime, or outside a trial boundary, it runs at once.
+            epsych.EventHub.deferFor(obj.Runtime_, obj, 'ParameterScatter.update', @() obj.update());
         end
 
         function onSelectionChanged(obj,~,~)
@@ -802,46 +808,56 @@ classdef ParameterScatter < gui.PopOut
                 x(isnan(c)) = nan; % colormapped markers need a color value
                 set(sh,'XData',x,'YData',y,'CData',c(:));
                 try
-                    colormap(ax,feval(obj.ColormapName,max(numel(cLabels),1)));
+                    obj.setColormap_(ax,obj.ColormapName,max(numel(cLabels),1));
                 catch
                     vprintf(2,'gui.components.ParameterScatter: unknown colormap "%s"',obj.ColormapName)
                 end
-                ax.CLim = [0.5 max(numel(cLabels),1)+0.5];
+                obj.setIfChanged_(ax,'CLim',[0.5 max(numel(cLabels),1)+0.5]);
+                obj.setIfChanged_(ax,'CLimMode','manual');
                 if isempty(obj.ColorbarH) || ~isvalid(obj.ColorbarH)
                     obj.ColorbarH = colorbar(ax);
                 end
-                obj.ColorbarH.Ticks = 1:numel(cLabels);
-                obj.ColorbarH.TickLabels = cLabels;
-                obj.ColorbarH.Label.String = obj.ColorParameter;
-                obj.ColorbarH.Label.Interpreter = 'none';
+                obj.setIfChanged_(obj.ColorbarH,'Ticks',1:numel(cLabels));
+                obj.setIfChanged_(obj.ColorbarH,'TicksMode','manual');
+                obj.setIfChanged_(obj.ColorbarH,'TickLabels',cLabels(:));
+                obj.setIfChanged_(obj.ColorbarH,'TickLabelsMode','manual');
+                obj.setIfChanged_(obj.ColorbarH.Label,'String',obj.ColorParameter);
+                obj.setIfChanged_(obj.ColorbarH.Label,'Interpreter','none');
             else
                 c = obj.parameterValues_(D,obj.ColorParameter);
                 x(isnan(c)) = nan; % colormapped markers need a color value
                 set(sh,'XData',x,'YData',y,'CData',c(:));
                 try
-                    colormap(ax,obj.ColormapName);
+                    obj.setColormap_(ax,obj.ColormapName,0);
                 catch
                     vprintf(2,'gui.components.ParameterScatter: unknown colormap "%s"',obj.ColormapName)
                 end
                 cf = c(isfinite(c));
                 if ~isempty(cf)
                     if min(cf) == max(cf)
-                        ax.CLim = min(cf) + [-1 1];
+                        obj.setIfChanged_(ax,'CLim',min(cf) + [-1 1]);
+                        obj.setIfChanged_(ax,'CLimMode','manual');
                     else
-                        ax.CLim = [min(cf) max(cf)];
+                        obj.setIfChanged_(ax,'CLim',[min(cf) max(cf)]);
+                        obj.setIfChanged_(ax,'CLimMode','manual');
                     end
                 end
                 if isempty(obj.ColorbarH) || ~isvalid(obj.ColorbarH)
                     obj.ColorbarH = colorbar(ax);
                 end
-                obj.ColorbarH.TicksMode = 'auto';
-                obj.ColorbarH.TickLabelsMode = 'auto';
-                obj.ColorbarH.Label.String = obj.ColorParameter;
-                obj.ColorbarH.Label.Interpreter = 'none';
+                obj.setIfChanged_(obj.ColorbarH,'TicksMode','auto');
+                obj.setIfChanged_(obj.ColorbarH,'TickLabelsMode','auto');
+                obj.setIfChanged_(obj.ColorbarH.Label,'String',obj.ColorParameter);
+                obj.setIfChanged_(obj.ColorbarH.Label,'Interpreter','none');
             end
 
-            set(sh,'Marker',obj.Marker,'SizeData',obj.MarkerSize, ...
-                'MarkerFaceAlpha',obj.MarkerAlpha,'MarkerEdgeAlpha',obj.MarkerAlpha);
+            % Style is written only when it changes: on a running session
+            % these are the same four values every trial, and each write
+            % marks the axes for another layout pass.
+            obj.setIfChanged_(sh,'Marker',obj.Marker);
+            obj.setIfChanged_(sh,'SizeData',obj.MarkerSize);
+            obj.setIfChanged_(sh,'MarkerFaceAlpha',obj.MarkerAlpha);
+            obj.setIfChanged_(sh,'MarkerEdgeAlpha',obj.MarkerAlpha);
 
             % Outline: the fill color brightened. Colormapped fills are mapped
             % here rather than left to 'flat', which would hand the outline the
@@ -851,42 +867,95 @@ classdef ParameterScatter < gui.PopOut
             else
                 edgeC = obj.brighter_(obj.colormapColors_(ax,c));
             end
-            set(eh,'XData',x,'YData',y,'CData',edgeC, ...
-                'Marker',obj.Marker,'SizeData',obj.MarkerSize, ...
-                'MarkerEdgeAlpha',obj.MarkerAlpha);
+            set(eh,'XData',x,'YData',y,'CData',edgeC);
+            obj.setIfChanged_(eh,'Marker',obj.Marker);
+            obj.setIfChanged_(eh,'SizeData',obj.MarkerSize);
+            obj.setIfChanged_(eh,'MarkerEdgeAlpha',obj.MarkerAlpha);
 
-            if obj.LogX && ~isCatX, ax.XScale = 'log'; else, ax.XScale = 'linear'; end
-            if obj.LogY && ~isCatY, ax.YScale = 'log'; else, ax.YScale = 'linear'; end
-            if obj.ShowGrid, grid(ax,'on'); else, grid(ax,'off'); end
+            scales = {'linear','log'};
+            obj.setIfChanged_(ax,'XScale',scales{1 + (obj.LogX && ~isCatX)});
+            obj.setIfChanged_(ax,'YScale',scales{1 + (obj.LogY && ~isCatY)});
+            if logical(ax.XGrid) ~= obj.ShowGrid || logical(ax.YGrid) ~= obj.ShowGrid
+                if obj.ShowGrid, grid(ax,'on'); else, grid(ax,'off'); end
+            end
 
             if isCatX
-                ax.XTick = 1:numel(xLabels);
-                ax.XTickLabel = xLabels;
-                ax.XTickLabelRotation = 30;
-                if ~isempty(xLabels), ax.XLim = [0.5 numel(xLabels)+0.5]; end
+                obj.setIfChanged_(ax,'XTick',1:numel(xLabels));
+                obj.setIfChanged_(ax,'XTickMode','manual');
+                obj.setIfChanged_(ax,'XTickLabel',xLabels(:));
+                obj.setIfChanged_(ax,'XTickLabelMode','manual');
+                obj.setIfChanged_(ax,'XTickLabelRotation',30);
+                if ~isempty(xLabels)
+                    obj.setIfChanged_(ax,'XLim',[0.5 numel(xLabels)+0.5]);
+                    obj.setIfChanged_(ax,'XLimMode','manual');
+                end
             else
-                ax.XTickMode = 'auto';
-                ax.XTickLabelMode = 'auto';
-                ax.XTickLabelRotation = 0;
-                ax.XLimMode = 'auto';
+                obj.setIfChanged_(ax,'XTickMode','auto');
+                obj.setIfChanged_(ax,'XTickLabelMode','auto');
+                obj.setIfChanged_(ax,'XTickLabelRotation',0);
+                obj.setIfChanged_(ax,'XLimMode','auto');
             end
             if isCatY
-                ax.YTick = 1:numel(yLabels);
-                ax.YTickLabel = yLabels;
-                if ~isempty(yLabels), ax.YLim = [0.5 numel(yLabels)+0.5]; end
+                obj.setIfChanged_(ax,'YTick',1:numel(yLabels));
+                obj.setIfChanged_(ax,'YTickMode','manual');
+                obj.setIfChanged_(ax,'YTickLabel',yLabels(:));
+                obj.setIfChanged_(ax,'YTickLabelMode','manual');
+                if ~isempty(yLabels)
+                    obj.setIfChanged_(ax,'YLim',[0.5 numel(yLabels)+0.5]);
+                    obj.setIfChanged_(ax,'YLimMode','manual');
+                end
             else
-                ax.YTickMode = 'auto';
-                ax.YTickLabelMode = 'auto';
-                ax.YLimMode = 'auto';
+                obj.setIfChanged_(ax,'YTickMode','auto');
+                obj.setIfChanged_(ax,'YTickLabelMode','auto');
+                obj.setIfChanged_(ax,'YLimMode','auto');
             end
 
-            xlabel(ax,obj.XParameter,'Interpreter','none');
-            ylabel(ax,obj.YParameter,'Interpreter','none');
+            obj.setAxisLabel_(ax.XLabel,obj.XParameter);
+            obj.setAxisLabel_(ax.YLabel,obj.YParameter);
 
             % Drawn from the plotted x/y, so it inherits every exclusion the
             % markers already made: non-finite values, and points dropped for
             % a missing color-by value.
             obj.updateTrend_(ax,x,y,isCatX,isCatY);
+        end
+
+        function setIfChanged_(~,h,prop,value)
+            % Write a graphics property only when it differs. Reading one is
+            % a few microseconds; writing one marks the axes for another
+            % layout pass whether or not the value is new, and a redraw that
+            % rewrote some twenty-five of them every trial was most of what
+            % a trial cost this component.
+            if ~isequal(get(h,prop),value)
+                set(h,prop,value);
+            end
+        end
+
+        function setAxisLabel_(~,h,txt)
+            % An axis label, written only when its text changes.
+            if ~isequal(h.String,txt)
+                h.String = txt;
+            end
+            if ~strcmp(h.Interpreter,'none')
+                h.Interpreter = 'none';
+            end
+        end
+
+        function setColormap_(~,ax,name,n)
+            % Apply colormap NAME (N levels; 0 for its default length) to
+            % the axes unless it is the one already applied. The record of
+            % what was applied lives on the axes, so a rebuilt axes starts
+            % with none. Throws what colormap throws for an unknown name.
+            key = sprintf('%s|%d',name,n);
+            if isappdata(ax,'epsych_ScatterColormap') ...
+                    && strcmp(getappdata(ax,'epsych_ScatterColormap'),key)
+                return
+            end
+            if n > 0
+                colormap(ax,feval(name,n));
+            else
+                colormap(ax,name);
+            end
+            setappdata(ax,'epsych_ScatterColormap',key);
         end
 
         function rgb = colormapColors_(~,ax,c)
@@ -937,22 +1006,27 @@ classdef ParameterScatter < gui.PopOut
 
             [tx,ty,stats] = obj.trendSeries_(x,y,isCatX,isCatY);
             vis = {'off','on'};
-            set(h,'XData',tx,'YData',ty,'Color',obj.TrendColor, ...
-                'Visible',vis{1+~isempty(tx)});
+            set(h,'XData',tx,'YData',ty);
+            obj.setIfChanged_(h,'Color',obj.TrendColor);
+            obj.setIfChanged_(h,'Visible',matlab.lang.OnOffSwitchState(vis{1+~isempty(tx)}));
 
             % A per-value aggregate is a handful of summary points, and
             % marking them says which x values were grouped; a fitted curve
             % or a running mean is a continuum, where markers only clutter.
             if ismember(obj.TrendType,{'mean','median'})
-                set(h,'Marker','o','MarkerFaceColor',obj.TrendColor,'MarkerSize',5);
+                obj.setIfChanged_(h,'Marker','o');
+                obj.setIfChanged_(h,'MarkerFaceColor',obj.TrendColor);
+                obj.setIfChanged_(h,'MarkerSize',5);
             else
-                set(h,'Marker','none');
+                obj.setIfChanged_(h,'Marker','none');
             end
 
             % The title is the only spare space on the axes, and it is cleared
             % again only when we were the ones who filled it.
             if obj.ShowTrendStats && ~isempty(stats)
-                title(ax,stats,'Interpreter','none','FontWeight','normal');
+                if ~isequal(ax.Title.String,stats) || ~obj.TrendTitleSet_
+                    title(ax,stats,'Interpreter','none','FontWeight','normal');
+                end
                 obj.TrendTitleSet_ = true;
             elseif obj.TrendTitleSet_
                 title(ax,'');

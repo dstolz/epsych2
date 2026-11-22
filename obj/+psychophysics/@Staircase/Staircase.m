@@ -821,6 +821,22 @@ classdef Staircase < psychophysics.Psych & gui.PopOut
 
         function afterRefresh_(obj)
             % Update the staircase plot after analysis refreshes when enabled.
+            %
+            % The analysis above this call is what the next trial may depend
+            % on and has already run. Redrawing it is display work: during a
+            % session the hub runs it once the next trial has been dispatched
+            % rather than while the subject waits (epsych.EventHub.defer).
+            % Offline, in a review, or on a settings change there is no
+            % trial boundary and the plot is redrawn here and now.
+            if obj.plotEnabled_
+                epsych.EventHub.deferFor(obj.RUNTIME, obj, 'Staircase.plot', ...
+                    @() obj.redrawIfEnabled_());
+            end
+        end
+
+        function redrawIfEnabled_(obj)
+            % The deferred half of afterRefresh_; the plot may have been
+            % switched off between the request and its turn.
             if obj.plotEnabled_
                 obj.updatePlot_();
             end

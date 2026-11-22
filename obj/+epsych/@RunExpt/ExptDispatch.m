@@ -153,6 +153,77 @@ switch COMMAND
 
         self.RUNTIME.TIMER = self.CreateTimer;
 
+        % Whether hardware going Idle stops a multi-interface session is the
+        % rig's choice (see RunExpt.StopOnIdleHardware). Read behind ispref:
+        % getpref with a default would create the preference.
+        if ispref('EPsych', 'StopOnIdleHardware')
+            v = getpref('EPsych', 'StopOnIdleHardware');
+            if isscalar(v) && (islogical(v) || isnumeric(v))
+                self.StopOnIdleHardware = logical(v);
+            end
+        end
+        self.IdleCheckTic_ = [];
+
+        % Displays may draw after the next trial has started instead of
+        % before it (epsych.EventHub.defer). A behavior GUI asks for that
+        % itself (gui.BehaviorGUI.deferDisplayWork); this preference asks
+        % for it on every session of the rig, whatever the GUI. The hub is
+        % new each Run, so nothing carries over from the last one.
+        if ispref('EPsych', 'DeferDisplays')
+            v = getpref('EPsych', 'DeferDisplays');
+            if isscalar(v) && (islogical(v) || isnumeric(v)) && logical(v)
+                self.RUNTIME.EVENTS.DeferralEnabled = true;
+            end
+        end
+
+        % Leaving out a dispatch write the device was just read back holding
+        % is the rig's choice as well (hw.Interface.SkipUnchangedWrites, and
+        % why it is off unless asked for). A preference that exists is
+        % applied either way, so removing the true is not needed to get the
+        % writes back; one that does not exist leaves each interface as its
+        % protocol or a script set it.
+        if ispref('EPsych', 'SkipUnchangedWrites')
+            v = getpref('EPsych', 'SkipUnchangedWrites');
+            if isscalar(v) && (islogical(v) || isnumeric(v))
+                ifaces = self.RUNTIME.Interfaces;
+                for k = 1:numel(ifaces)
+                    ifaces(k).SkipUnchangedWrites = logical(v);
+                end
+                if logical(v)
+                    vprintf(1, 'Unchanged parameter writes are left out of trial dispatch (preference EPsych/SkipUnchangedWrites)')
+                end
+            end
+        end
+
+        % What a trial record holds of buffers and of stimuli
+        % (epsych.Runtime.RecordBuffers, RecordStimulusSettings). The
+        % study decides: each subject's roster membership carries the two
+        % settings (the project's Session Defaults), and adding subjects
+        % to the session put the agreed values on FUNCS
+        % (epsych.SubjectRoster.assignToSession). Applied here, before the
+        % first trial, because every record of a session must have the
+        % same fields. A FUNCS built by hand without them leaves the
+        % runtime at its own defaults.
+        for rec = string(epsych.SubjectRoster.SESSION_FLAG_FIELDS)
+            if isfield(self.FUNCS, rec) && isscalar(self.FUNCS.(rec)) ...
+                    && (islogical(self.FUNCS.(rec)) || isnumeric(self.FUNCS.(rec)))
+                self.RUNTIME.(rec) = logical(self.FUNCS.(rec));
+            end
+        end
+        if ~self.RUNTIME.RecordBuffers
+            vprintf(1, 'Buffer parameters are left out of the trial record (this study''s session settings)')
+        end
+        if self.RUNTIME.RecordStimulusSettings
+            vprintf(1, 'Stimuli are recorded as their settings, not as objects (this study''s session settings)')
+        end
+
+        % Trial-loop timing is recorded only when asked for (preference
+        % EPsych/TickStats); see epsych.TickStats. Reported at Stop.
+        if epsych.TickStats.enabledByPref()
+            self.RUNTIME.TickStats = epsych.TickStats(Period = self.RUNTIME.TIMER.Period);
+            vprintf(1, 'Trial-loop timing is on (preference EPsych/TickStats)')
+        end
+
         % Return each interface's per-session device state to its start-of-run
         % condition. Interfaces stay connected between runs, so a rerun of the
         % same subject would otherwise inherit the previous run's counters

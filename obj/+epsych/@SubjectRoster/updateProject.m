@@ -22,6 +22,7 @@ function updateProject(self, id, P)
 %   epsych:SubjectRoster:DuplicateName
 %   epsych:SubjectRoster:UnsafeLink
 %   epsych:SubjectRoster:InvalidTimerPeriod
+%   epsych:SubjectRoster:InvalidSessionFlag
 %
 % See also: epsych.SubjectRoster.addProject, epsych.SubjectRoster.deleteProject,
 %   epsych.SubjectRoster.makeLink
@@ -66,6 +67,18 @@ if isfield(P, 'TimerPeriod')
     end
 end
 
+% The yes/no session settings (SESSION_FLAG_FIELDS), refused on the same
+% terms: before the file is touched.
+newFlags = struct();
+for ff = epsych.SubjectRoster.SESSION_FLAG_FIELDS
+    if ~isfield(P, ff{1}), continue, end
+    [newFlags.(ff{1}), okFlag] = epsych.SubjectRoster.sessionFlag(P.(ff{1}));
+    if ~okFlag
+        error('epsych:SubjectRoster:InvalidSessionFlag', ...
+            '%s must be true, false, or NaN to leave it at the built-in default.', ff{1});
+    end
+end
+
 projectId = rec.ProjectID;
 self.mutate_(@applyUpdate);
 
@@ -94,6 +107,10 @@ vprintf(2, 'Updated project "%s".', rec.Name);
 
         if isfield(P, 'TimerPeriod')
             cur.TimerPeriod = newPeriod;
+        end
+
+        for ff = fieldnames(newFlags)'
+            cur.(ff{1}) = newFlags.(ff{1});
         end
 
         if isfield(P, 'Archived')

@@ -1,9 +1,10 @@
 function update_graphical_(obj)
 % update_graphical_(obj)
-% Refresh the type="graphical" widgets from their parameters. Each widget
-% performs exactly one parameter read per poll (Value for lamps/gauges,
-% ValueStr for labels) and graphics properties are only assigned when the
-% value actually changed, so an idle display costs no redraws.
+% Refresh the type="graphical" widgets from their parameters. Every widget's
+% value comes from one batched read of all of them (readValues_: one backend
+% call per interface, not one per widget) and graphics properties are only
+% assigned when the value actually changed, so an idle display costs no
+% redraws.
 %
 % Value labels flash HighlightColor when their value changes
 % (HighlightOnChange); the flash clears on the next poll in which the value
@@ -14,14 +15,25 @@ W = obj.Widgets;
 vals = strings(1,numel(W));
 highlight = obj.HighlightOnChange && ~obj.suppressHighlight_;
 
+% Read everything shown in one pass. A widget whose parameter or handle has
+% gone is skipped below, and left out of the read.
+live = false(1,numel(W));
 for i = 1:numel(W)
+    live(i) = isvalid(W(i).Parameter) && isvalid(W(i).ValueHandle);
+end
+read = cell(1,numel(W));
+if any(live)
+    read(live) = obj.readValues_([W(live).Parameter]);
+end
+
+for i = 1:numel(W)
+    if ~live(i), continue; end
     p = W(i).Parameter;
     h = W(i).ValueHandle;
-    if ~isvalid(p) || ~isvalid(h), continue; end
+    v = read{i};
 
     switch W(i).Style
         case "lamp"
-            v = p.Value;
             state = false;
             if ~isempty(v)
                 try
@@ -41,7 +53,6 @@ for i = 1:numel(W)
             end
 
         case "gauge"
-            v = p.Value;
             if isnumeric(v) && isscalar(v) && isfinite(v)
                 vals(i) = string(v);
                 if ~isequal(v, W(i).LastValue)
@@ -51,7 +62,7 @@ for i = 1:numel(W)
             end
 
         otherwise % "label"
-            s = p.ValueStr;
+            s = p.formatValue(v);
             vals(i) = string(s);
             if ~strcmp(s, W(i).LastText)
                 h.Text = s;

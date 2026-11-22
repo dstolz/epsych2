@@ -138,6 +138,27 @@ classdef NE1000 < hw.Interface
         % VolumeInfused and VolumeWithdrawn, so the runtime's trial-end sweep
         % over the readable parameters costs one round-trip rather than two.
         DispenseCacheInterval (1,1) double = 0.05
+
+        % How long (s) a SETTING the pump reported -- Rate, Volume, Diameter,
+        % Direction, TTLTrigger -- may answer the next read of it. 0, the
+        % default, asks the pump every time.
+        %
+        % A setting moves only when something writes it, and every read of
+        % one is a blocking RS-232 transaction. The runtime's trial-end
+        % sweep reads Rate and Volume on every trial, and a
+        % gui.components.SyringePump panel reads all of them by name; with
+        % an interval those are served from what the pump last said.
+        % A write of a setting through this interface drops its entry; an
+        % alarm, a refused write, a Diameter write and a reconnect drop
+        % them all. Changing RateUnits does not, and need not: what is
+        % cached stays what the pump holds, in the units it reported.
+        %
+        % The one thing it cannot see is the pump's KEYPAD: a setting changed
+        % there is reported, and recorded in the trial data, up to this many
+        % seconds late. That is why it is off unless asked for. Status and
+        % the dispensed volumes are never served from it. Not saved with a
+        % protocol; set it from code.
+        SettingsCacheInterval (1,1) double {mustBeNonnegative} = 0
     end
 
     properties (SetObservable, AbortSet)
@@ -195,6 +216,11 @@ classdef NE1000 < hw.Interface
 
         % Alarm codes (manual 10.2.4) and labels, index-aligned.
         ALARM_CHARS  = 'RSTEO'
+        % The wire names SettingsCacheInterval covers: what the pump keeps
+        % until told otherwise. Status and the dispensed volumes change on
+        % their own and are never among them.
+        SETTING_WIRES = {'Rate','Volume','Diameter','Direction','TTLTrigger'}
+
         ALARM_LABELS = {'Pump was reset (power interrupted)', ...
                         'Pump motor stalled', ...
                         'Safe-mode communications timeout', ...
@@ -227,6 +253,16 @@ classdef NE1000 < hw.Interface
         % Serves a read whose reply went missing, so a dropped packet
         % degrades to a stale value instead of to [] (see readOne_).
         lastGood_ = struct()
+
+        % Settings the pump reported, for SettingsCacheInterval: one field
+        % per wire name, each struct('v', value, 't', tic). Only a reply the
+        % pump actually gave is ever put here.
+        settingsCache_ = struct()
+
+        % The units the pump last reported its Rate in ('' before the first
+        % read). A rate that reads back as the same NUMBER in other units is
+        % not the same rate, which holdsValue has to know.
+        rateUnitsSeen_ (1,:) char = ''
     end
 
 
@@ -499,11 +535,40 @@ classdef NE1000 < hw.Interface
             end
 
             for i = 1:numel(P)
+                % A write made here directly, past hw.Parameter.set.Value,
+                % makes this parameter's last read-back out of date.
+                if obj.SkipUnchangedWrites
+                    P(i).forgetDeviceValue();
+                end
                 ok = obj.writeOne_(obj.wireName_(P(i)), value{i});
                 result = result && ok;
             end
 
             obj.dispCacheTic_ = [];
+        end
+
+        function tf = holdsValue(obj, p, deviceValue, value)
+            % tf = holdsValue(obj, p, deviceValue, value)
+            % Whether the pump, having reported DEVICEVALUE, already holds
+            % VALUE (hw.Interface.SkipUnchangedWrites). Answered for Rate
+            % and Volume only, the two a trial table rewrites every trial:
+            % they agree when they format to the same four digits the pump
+            % is sent, and a Rate only when the pump reported it in the
+            % units this interface writes -- the same number in other units
+            % is another rate. Everything else is always written.
+            tf = false;
+            if p.isTrigger || ~isscalar(value) || ~isnumeric(value) ...
+                    || ~isscalar(deviceValue) || ~isnumeric(deviceValue) ...
+                    || ~isfinite(value) || ~isfinite(deviceValue)
+                return
+            end
+            switch obj.wireName_(p)
+                case 'Rate'
+                    tf = strcmp(obj.rateUnitsSeen_, obj.RateUnits) ...
+                        && strcmp(hw.NE1000.formatFloat_(deviceValue), hw.NE1000.formatFloat_(value));
+                case 'Volume'
+                    tf = strcmp(hw.NE1000.formatFloat_(deviceValue), hw.NE1000.formatFloat_(value));
+            end
         end
 
         function t = trigger(obj, name)
@@ -726,6 +791,9 @@ classdef NE1000 < hw.Interface
             end
             obj.Port = char(port);
 
+            % Nothing a previous connection learned about this pump stands.
+            obj.dropSetting_();
+
             % --- Open --------------------------------------------------------
             obj.openPort_();
 
@@ -816,6 +884,7 @@ classdef NE1000 < hw.Interface
             obj.closePort_();
             obj.dispCache_ = [];
             obj.dispCacheTic_ = [];
+            obj.dropSetting_();
         end
 
         function populateModule_(obj, module)
@@ -1036,6 +1105,9 @@ classdef NE1000 < hw.Interface
                 % Per the manual, this reply IS the acknowledgment of the alarm.
                 obj.LastAlarm = R.alarm;
                 vprintf(0, 1, 'NE1000: alarm - %s', obj.alarmLabel_(R.alarm));
+                % A pump that reset, stalled or lost its program may hold
+                % none of the settings it reported before.
+                obj.dropSetting_();
             end
 
             % '?NA' to STP means the pump was already stopped, which is what
@@ -1063,11 +1135,37 @@ classdef NE1000 < hw.Interface
             % setting is still true, since nothing but a write moves it.
             % Status is the one genuinely volatile reading, so a missing
             % Status reports 'Unknown' rather than a state the pump has left.
+            %
+            % A SETTING may instead be answered from what the pump last
+            % reported for it (SettingsCacheInterval, off by default): only
+            % a write moves one, and every write through this interface
+            % drops its entry.
+            cached = obj.SettingsCacheInterval > 0 && any(strcmp(wire, hw.NE1000.SETTING_WIRES));
+            if cached && isfield(obj.settingsCache_, wire)
+                c = obj.settingsCache_.(wire);
+                if toc(c.t) < obj.SettingsCacheInterval
+                    v = c.v;
+                    if obj.SkipUnchangedWrites
+                        P.noteDeviceRead(v, obj.DeviceEpoch);
+                    end
+                    return
+                end
+            end
+
             v = obj.queryOne_(wire, P);
 
             if ~isempty(v)
                 if isvarname(wire)
                     obj.lastGood_.(wire) = v;
+                end
+                if cached
+                    obj.settingsCache_.(wire) = struct('v', {v}, 't', tic);
+                end
+                % What the pump itself just said -- never one of the
+                % stand-ins below -- is what a later dispatch write may be
+                % left out on (hw.Interface.SkipUnchangedWrites).
+                if obj.SkipUnchangedWrites
+                    P.noteDeviceRead(v, obj.DeviceEpoch);
                 end
                 return
             end
@@ -1100,9 +1198,14 @@ classdef NE1000 < hw.Interface
 
             switch wire
                 case 'Rate'
+                    % '<float><units>'. The units are kept: the same number
+                    % in other units is another rate (holdsValue).
                     R = obj.transact_('RAT');
-                    tok = regexp(R.data, '^([\d.]+)', 'tokens', 'once');
-                    if ~isempty(tok), v = str2double(tok{1}); end
+                    tok = regexp(R.data, '^([\d.]+)\s*([A-Za-z]{2})?', 'tokens', 'once');
+                    if ~isempty(tok)
+                        v = str2double(tok{1});
+                        obj.rateUnitsSeen_ = upper(tok{2});
+                    end
 
                 case 'Volume'
                     R = obj.transact_('VOL');
@@ -1240,6 +1343,10 @@ classdef NE1000 < hw.Interface
                 value = value{1};
             end
 
+            % Whatever the pump answers, what it reported for this setting
+            % before is no longer known to be what it holds.
+            obj.dropSetting_(wire);
+
             switch wire
                 case 'Rate'
                     % Units can only be set while stopped; when the first form
@@ -1296,6 +1403,33 @@ classdef NE1000 < hw.Interface
 
                 otherwise
                     vprintf(2, 'NE1000: no wire mapping for "%s"; value kept host-side', wire);
+            end
+
+            if ~ok
+                % A write the pump refused says it is not in the state the
+                % host thought: nothing it reported earlier stands.
+                obj.dropSetting_();
+            end
+        end
+
+        function dropSetting_(obj, wire)
+            % dropSetting_(obj)         every setting
+            % dropSetting_(obj, wire)   one setting
+            % Forget what the pump reported (SettingsCacheInterval), and what
+            % was read back from it as evidence for leaving out a write
+            % (hw.Interface.SkipUnchangedWrites).
+            %
+            % One setting drops only its own cache entry -- the parameter's
+            % own read-back is cleared by whoever writes it. Dropping every
+            % setting also retires every read-back: that is for an alarm, a
+            % refused write, a reconnect, and a Diameter write, which the
+            % pump answers by rescaling its rates and volume units.
+            if nargin < 2 || strcmp(wire, 'Diameter')
+                obj.settingsCache_ = struct();
+                obj.rateUnitsSeen_ = '';
+                obj.invalidateDeviceValues();
+            elseif isfield(obj.settingsCache_, wire)
+                obj.settingsCache_ = rmfield(obj.settingsCache_, wire);
             end
         end
 

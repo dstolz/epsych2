@@ -13,6 +13,13 @@ function smoke_test_incremental_perf()
 %   N=1000 29.85 -> 8.39     39.10 -> 33.17    51.63 -> 29.67
 % The scatter's remaining cost is graphics, not value extraction.
 %
+% And after the display-side guards (2026-11): property writes only when the
+% value changes in the scatter, and each distinct colour converted once in
+% the staircase instead of hex2rgb over every trial's colour on every trial.
+%          History          ParameterScatter   Staircase
+%   N=200   3.33 -> 3.5      29.88 -> 11.2     14.90 -> 10.6
+%   N=1000  5.63 -> 5.6      30.68 -> 12.3     27.93 -> 12.0
+%
 %   matlab -batch "run('tmp/smoke_test_incremental_perf.m')"
 
 here = fileparts(mfilename('fullpath'));

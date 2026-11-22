@@ -107,6 +107,14 @@ S.TrialTable    = T.trials;
 S.WriteParams   = T.writeparams;
 S.WriteParamIdx = T.writeParamIdx;
 
+% What this session's trial records hold of buffers and of stimuli
+% (epsych.Runtime.RecordBuffers, RecordStimulusSettings). Both change what
+% Data contains -- whether a buffer has a field at all, whether a stimulus is
+% a struct of settings or an object -- and the file is the only place a
+% reader months later can learn which it is looking at.
+S.RecordBuffers          = RUNTIME.RecordBuffers;
+S.RecordStimulusSettings = RUNTIME.RecordStimulusSettings;
+
 % Present but empty. The operator's notes are typed during the session, long
 % after this runs, so it is epsych.SessionSnapshot.withNotes -- called by
 % forSubject at save time -- that fills these in. Declaring them here keeps the
